@@ -1,0 +1,49 @@
+/* ==========================================================
+   PÁGINA PROFESSOR - Padrão Wc Fit
+   Base: styles/styles.css
+   ========================================================== */
+
+.login-page .login-card.form-professor {
+  max-width: 880px;
+}
+
+.form-professor .login-header {
+  margin-bottom: 1.75rem;
+}
+
+.form-professor .login-header h2 {
+  font-size: 1.75rem;
+}
+
+.form-professor .login-header p {
+  font-size: 1rem;
+}
+
+.form-professor .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.form-professor .btn-grupo .btn-salvar,
+.form-professor .btn-grupo .btn-cancelar {
+  flex: 1 1 180px;
+}
+
+.form-professor .tabela {
+  font-size: 0.9rem;
+}
+
+.form-professor .tabela th,
+.form-professor .tabela td {
+  padding: 0.9rem 1rem;
+}
+
+@media (max-width: 768px) {
+  .form-professor .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-professor .btn-grupo .btn-salvar,
+  .form-professor .btn-grupo .btn-cancelar {
+    flex: 1 1 100%;
+  }
+}
