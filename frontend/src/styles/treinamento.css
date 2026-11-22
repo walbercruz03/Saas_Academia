@@ -1,0 +1,545 @@
+/* Estilos do módulo de Treinamento (Wc Fit) */
+
+.treinamento-page,
+.treinamento-page *,
+.treinamento-page *::before,
+.treinamento-page *::after {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.treinamento-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.treinamento-page .form-card {
+  width: 100%;
+  max-width: 100%;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-radius: 10px;
+}
+
+.treinamento-page input[type="text"],
+.treinamento-page input[type="number"],
+.treinamento-page input[type="url"],
+.treinamento-page select,
+.treinamento-page textarea {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.treinamento-page textarea {
+  resize: vertical;
+  min-height: 76px;
+}
+
+.treinamento-acoes-header {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.treinamento-alerta-erro {
+  padding: 0.85rem 1rem;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+
+.treinamento-alerta-sucesso {
+  padding: 0.85rem 1rem;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+
+/* Resumo */
+.treinamento-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.treinamento-page .treinamento-stat-card {
+  margin: 0;
+  padding: 1rem 1.15rem;
+}
+
+.treinamento-stat-label {
+  display: block;
+  font-size: 0.74rem;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.treinamento-stat-valor {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0.25rem;
+  line-height: 1.2;
+}
+
+.treinamento-stat-valor--primario {
+  color: #2563eb;
+}
+
+.treinamento-stat-valor--secundario {
+  color: #0f766e;
+}
+
+.treinamento-stat-valor--sucesso {
+  color: #16a34a;
+}
+
+/* Filtros e formulários */
+.treinamento-filtro-card {
+  margin-bottom: 1.25rem;
+}
+
+.treinamento-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.treinamento-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.treinamento-campo label {
+  font-weight: 500;
+  font-size: 0.86rem;
+  color: #1e293b;
+}
+
+.treinamento-acoes-linha {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Botões */
+.treinamento-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.55rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.treinamento-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.treinamento-btn--primario {
+  background: #2563eb;
+  color: #fff;
+}
+
+.treinamento-btn--escuro {
+  background: #0f172a;
+  color: #fff;
+}
+
+.treinamento-btn--sucesso {
+  background: #16a34a;
+  color: #fff;
+}
+
+.treinamento-btn--neutro {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.treinamento-btn--suave-azul {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.treinamento-btn--suave-verde {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.treinamento-btn--perigo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.treinamento-btn--sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+/* Badges e chips */
+.treinamento-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.treinamento-badge--azul {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.treinamento-badge--teal {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.treinamento-badge--neutro {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.treinamento-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.treinamento-chip {
+  padding: 0.32rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.treinamento-chip--ativo-azul {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.treinamento-chip--ativo-teal {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+/* Tabela e paginação */
+.treinamento-tabela-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.treinamento-tabela-header h3,
+.treinamento-tabela-header h4 {
+  margin: 0;
+}
+
+.treinamento-tabela-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.treinamento-tabela {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.treinamento-tabela th,
+.treinamento-tabela td {
+  padding: 0.65rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.treinamento-tabela th {
+  font-weight: 600;
+  color: #334155;
+  border-bottom-width: 2px;
+}
+
+.treinamento-paginacao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Cards de Modelos de Treino */
+.treinamento-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.treinamento-page .treinamento-modelo-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.treinamento-preview-lista {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.treinamento-preview-item {
+  font-size: 0.82rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #e2e8f0;
+  word-break: break-word;
+}
+
+.treinamento-preview-item:last-child {
+  border-bottom: none;
+}
+
+/* Blocos de exercício e campos */
+.treinamento-item-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #f8fafc;
+  margin-bottom: 0.75rem;
+}
+
+.treinamento-item-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+
+.treinamento-page .exercicio-row {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.treinamento-item-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.55rem;
+}
+
+/* Biblioteca rápida dentro de Treinos.jsx */
+.treinamento-page .campo-full.treinamento-biblioteca-box {
+  display: block;
+  justify-content: flex-start;
+  margin-top: 0.25rem;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.treinamento-biblioteca-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.treinamento-page .treinamento-biblioteca-busca {
+  flex: 1 1 240px;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Modais */
+.treinamento-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.treinamento-page .treinamento-modal-card {
+  width: 100%;
+  max-width: 660px;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.treinamento-page .treinamento-modal-card--sm {
+  max-width: 480px;
+}
+
+.treinamento-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.treinamento-modal-header h3 {
+  margin: 0;
+}
+
+.treinamento-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.treinamento-grafico-box {
+  width: 100%;
+  height: 230px;
+}
+
+/* Tema escuro */
+[data-theme="dark"] .treinamento-page input[type="text"],
+[data-theme="dark"] .treinamento-page input[type="number"],
+[data-theme="dark"] .treinamento-page input[type="url"],
+[data-theme="dark"] .treinamento-page select,
+[data-theme="dark"] .treinamento-page textarea {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .treinamento-campo label,
+[data-theme="dark"] .treinamento-stat-valor {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .treinamento-tabela th {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .treinamento-tabela th,
+[data-theme="dark"] .treinamento-tabela td {
+  border-color: #334155;
+}
+
+[data-theme="dark"] .treinamento-item-box,
+[data-theme="dark"] .treinamento-page .campo-full.treinamento-biblioteca-box,
+[data-theme="dark"] .treinamento-preview-lista {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: #334155;
+}
+
+[data-theme="dark"] .treinamento-chip {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .treinamento-chip--ativo-azul {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+[data-theme="dark"] .treinamento-chip--ativo-teal {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .treinamento-page .treinamento-modal-card {
+    max-width: 92vw;
+  }
+}
+
+@media (max-width: 768px) {
+  .treinamento-grid-auto,
+  .treinamento-cards-grid,
+  .treinamento-item-campos,
+  .treinamento-page .exercicio-row {
+    grid-template-columns: 1fr;
+  }
+
+  .treinamento-page .treinamento-biblioteca-busca {
+    max-width: 100%;
+  }
+
+  .treinamento-modal-backdrop {
+    align-items: flex-end;
+    padding: 0.5rem;
+  }
+
+  .treinamento-page .treinamento-modal-card {
+    max-height: 92vh;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .treinamento-modal-footer {
+    justify-content: stretch;
+  }
+
+  .treinamento-modal-footer .treinamento-btn {
+    flex: 1;
+  }
+}

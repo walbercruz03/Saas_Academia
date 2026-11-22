@@ -1,0 +1,403 @@
+/* ==========================================================
+   PÁGINA FINANCEIRO (VENDAS, A RECEBER, A PAGAR) - WC FIT
+   ========================================================== */
+
+.fin-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.fin-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.fin-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+}
+
+.fin-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* Botões de navegação entre Vendas / Contas a Receber / Contas a Pagar */
+.fin-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.fin-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 0.52rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #334155);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.fin-tab-btn:hover {
+  border-color: #0891b2;
+  color: #0891b2;
+}
+
+.fin-tab-btn.ativo {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* Alertas */
+.fin-alerta {
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.fin-alerta.sucesso {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.fin-alerta.erro {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+/* Cards de Resumo */
+.fin-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.fin-resumo-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-top: 4px solid #0891b2;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.fin-resumo-card.pago {
+  border-top-color: #16a34a;
+}
+
+.fin-resumo-card.pendente {
+  border-top-color: #d97706;
+}
+
+.fin-resumo-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+}
+
+.fin-resumo-valor {
+  margin-top: 0.35rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+}
+
+/* Formulário de Lançamento */
+.fin-form-box {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1.35rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  margin-bottom: 1.75rem;
+}
+
+.fin-form-titulo {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.fin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.fin-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.fin-campo label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #334155);
+}
+
+.fin-campo input,
+.fin-campo select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.56rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-input, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.88rem;
+}
+
+.fin-btn-salvar {
+  width: 100%;
+  padding: 0.62rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #0891b2;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fin-btn-salvar:hover:not(:disabled) {
+  background: #0e7490;
+}
+
+.fin-btn-salvar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tabela de Lançamentos */
+.fin-tabela-box {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.fin-tabela-topo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fin-tabela-topo h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.fin-filtro-select {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-input, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.85rem;
+}
+
+.fin-tabela-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+}
+
+.fin-tabela {
+  width: 100%;
+  min-width: 660px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.fin-tabela th {
+  background: var(--bg-subtle, #f8fafc);
+  color: var(--text-secondary, #334155);
+  font-weight: 700;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  white-space: nowrap;
+}
+
+.fin-tabela td {
+  padding: 0.65rem 0.85rem;
+  color: var(--text-primary, #1e293b);
+  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+}
+
+.fin-tabela tr:last-child td {
+  border-bottom: none;
+}
+
+.fin-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.fin-badge.pago {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.fin-badge.pendente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.fin-badge.vencido {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.fin-badge.cancelado {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.fin-acoes {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.fin-btn-acao {
+  padding: 0.34rem 0.68rem;
+  border-radius: 7px;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fin-btn-baixar {
+  background: #0891b2;
+  color: #ffffff;
+}
+
+.fin-btn-excluir {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.fin-vazio {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.88rem;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .fin-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .fin-container {
+    padding: 0 1rem 2rem;
+  }
+
+  .fin-resumo-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .fin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fin-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .fin-tab-btn {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fin-tabela-wrap {
+    border: none;
+    overflow-x: visible;
+  }
+
+  .fin-tabela {
+    min-width: 0;
+    width: 100%;
+    display: block;
+  }
+
+  .fin-tabela thead {
+    display: none;
+  }
+
+  .fin-tabela tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .fin-tabela tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    background: var(--bg-card, #ffffff);
+  }
+
+  .fin-tabela td {
+    padding: 0.15rem 0;
+    border: none;
+  }
+}

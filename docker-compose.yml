@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wcfit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wcfit}
+      POSTGRES_USER: ${POSTGRES_USER:-wcfit_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wcfit_senha_forte_2026}
+      TZ: America/Fortaleza
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_wcfit:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wcfit_admin} -d ${POSTGRES_DB:-wcfit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend/src
+      dockerfile: ../Dockerfile
+    container_name: wcfit-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      TZ: America/Fortaleza
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wcfit_admin}:${POSTGRES_PASSWORD:-wcfit_senha_forte_2026}@db:5432/${POSTGRES_DB:-wcfit}
+      JWT_SECRET: ${JWT_SECRET:-chave_secreta_jwt_wcfit_2026}
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: wcfit-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata_wcfit:

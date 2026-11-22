@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
       try {
         const token = localStorage.getItem('token');
         const user = localStorage.getItem('usuario');
-        if (token && user) {
+        if (token) {
           try {
             const parsedUser = JSON.parse(user);
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
