@@ -2,8 +2,9 @@ const GrupoMuscular = require('../models/GrupoMuscular');
 
 const grupoMuscularController = {
   listar(req, res) {
-    const { busca = '' } = req.query;
-    GrupoMuscular.listar({ busca }, (err, rows) => {
+    const { busca = '', academia_id } = req.query;
+
+    GrupoMuscular.listar({ busca, academia_id }, (err, rows) => {
       if (err) {
         console.error('Erro ao listar grupos musculares:', err.message);
         return res.status(500).json({ erro: 'Erro ao listar grupos musculares.' });
@@ -32,7 +33,7 @@ const grupoMuscularController = {
       return res.status(400).json({ erro: 'O nome do grupo muscular é obrigatório.' });
     }
 
-    GrupoMuscular.criar({ nome, descricao }, (err, criado) => {
+    GrupoMuscular.criar({ nome, descricao, academia_id: req.usuario.academia_id }, (err, criado) => {
       if (err) {
         if (/unique|duplicate/i.test(err.message)) {
           return res.status(409).json({ erro: 'Já existe um grupo muscular com esse nome.' });
@@ -60,7 +61,12 @@ const grupoMuscularController = {
         return res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
       }
 
-      GrupoMuscular.atualizar(id, { nome, descricao }, (err, atualizado) => {
+      // Verify academia ownership
+      if (existente.academia_id !== req.usuario.academia_id) {
+        return res.status(403).json({ erro: 'Não é permitido atualizar grupo muscular de outra academia.' });
+      }
+
+      GrupoMuscular.atualizar(id, { nome, descricao, academia_id: req.usuario.academia_id }, (err, atualizado) => {
         if (err) {
           if (/unique|duplicate/i.test(err.message)) {
             return res.status(409).json({ erro: 'Já existe um grupo muscular com esse nome.' });
@@ -82,6 +88,11 @@ const grupoMuscularController = {
       }
       if (!existente) {
         return res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
+      }
+
+      // Verify academia ownership - prevent deletion of groups from other academies
+      if (existente.academia_id !== req.usuario.academia_id) {
+        return res.status(403).json({ erro: 'Não é permitido excluir grupo muscular de outra academia.' });
       }
 
       GrupoMuscular.deletar(id, (err) => {

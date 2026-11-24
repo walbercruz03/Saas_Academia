@@ -6,10 +6,12 @@ const Treino = {
       CREATE TABLE IF NOT EXISTS treinos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         aluno_id INTEGER NOT NULL,
+        academia_id INTEGER,
         divisao TEXT NOT NULL,
         exercicios TEXT NOT NULL,
         criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (aluno_id) REFERENCES alunos (id) ON DELETE CASCADE
+        FOREIGN KEY (aluno_id) REFERENCES alunos (id) ON DELETE CASCADE,
+        FOREIGN KEY (academia_id) REFERENCES academias(id)
       )
     `;
     db.run(query, callback);

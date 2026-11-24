@@ -7,13 +7,15 @@ const GrupoMuscular = {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL UNIQUE,
         descricao TEXT,
-        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        academia_id INTEGER,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (academia_id) REFERENCES academias(id)
       )
     `;
     db.run(query, callback);
   },
 
-  listar: ({ busca = '' } = {}, callback) => {
+  listar: ({ busca = '', academia_id = '' } = {}, callback) => {
     const params = [];
     let sql = `
       SELECT
@@ -25,13 +27,19 @@ const GrupoMuscular = {
       LEFT JOIN exercicio_grupos_musculares egm ON egm.grupo_muscular_id = gm.id
     `;
 
+    if (academia_id && String(academia_id).trim() !== '') {
+      sql += ` WHERE gm.academia_id = ?`;
+      params.push(Number(academia_id));
+    }
+
     if (busca && busca.trim() !== '') {
       const termo = `%${busca.trim()}%`;
-      sql += ` WHERE LOWER(gm.nome) LIKE LOWER(?) OR LOWER(COALESCE(gm.descricao, '')) LIKE LOWER(?)`;
+      sql += ` OR LOWER(gm.nome) LIKE LOWER(?) OR LOWER(COALESCE(gm.descricao, '')) LIKE LOWER(?)`;
       params.push(termo, termo);
     }
 
     sql += ` GROUP BY gm.id ORDER BY gm.nome ASC`;
+
     db.all(sql, params, callback);
   },
 
@@ -40,9 +48,9 @@ const GrupoMuscular = {
     db.get(sql, [id], callback);
   },
 
-  criar: ({ nome, descricao = null }, callback) => {
-    const sql = `INSERT INTO grupos_musculares (nome, descricao) VALUES (?, ?)`;
-    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null], function (err) {
+  criar: ({ nome, descricao = null, academia_id }, callback) => {
+    const sql = `INSERT INTO grupos_musculares (nome, descricao, academia_id) VALUES (?, ?, ?)`;
+    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, academia_id], function (err) {
       if (err) return callback(err);
       callback(null, {
         id: this && this.lastID ? this.lastID : null,
@@ -52,9 +60,9 @@ const GrupoMuscular = {
     });
   },
 
-  atualizar: (id, { nome, descricao = null }, callback) => {
-    const sql = `UPDATE grupos_musculares SET nome = ?, descricao = ? WHERE id = ?`;
-    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, id], function (err) {
+  atualizar: (id, { nome, descricao = null, academia_id }, callback) => {
+    const sql = `UPDATE grupos_musculares SET nome = ?, descricao = ?, academia_id = ? WHERE id = ?`;
+    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, academia_id, id], function (err) {
       if (err) return callback(err);
       callback(null, {
         id: Number(id),

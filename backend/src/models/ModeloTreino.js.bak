@@ -1,0 +1,507 @@
+const db = require('../config/database');
+
+const ModeloTreino = {
+  criarTabela: (callback) => {
+    // A criação e schema são gerenciados pelas migrações em migrations/
+    if (typeof callback === 'function') callback(null);
+  },
+
+  anexarDivisoesEExercicios: (modelos, callback) => {
+    if (!Array.isArray(modelos) || modelos.length === 0) {
+      return callback(null, []);
+    }
+
+    const ids = modelos.map((m) => m.id);
+    const placeholders = ids.map(() => '?').join(', ');
+
+    // 1. Busca todas as divisões dos modelos
+    const sqlDivisoes = `
+      SELECT
+        dt.id,
+        dt.modelo_id,
+        dt.nome,
+        dt.descricao,
+        dt.ordem
+      FROM divisoes_treino dt
+      WHERE dt.modelo_id IN (${placeholders})
+      ORDER BY dt.ordem ASC, dt.id ASC
+    `;
+
+    db.all(sqlDivisoes, ids, (divErr, rowsDivisoes) => {
+      if (divErr) return callback(divErr);
+
+      // 2. Busca todos os exercícios vinculados aos modelos
+      const sqlExercicios = `
+        SELECT
+          mte.id,
+          mte.modelo_id,
+          mte.divisao_id,
+          mte.exercicio_id,
+          mte.ordem,
+          mte.series,
+          mte.repeticoes,
+          mte.carga,
+          mte.descanso,
+          mte.observacao,
+          e.nome AS exercicio_nome,
+          e.equipamento AS exercicio_equipamento,
+          e.dificuldade AS exercicio_dificuldade,
+          e.imagem_url AS exercicio_imagem_url,
+          e.video_url AS exercicio_video_url
+        FROM modelo_treino_exercicios mte
+        INNER JOIN exercicios e ON e.id = mte.exercicio_id
+        WHERE mte.modelo_id IN (${placeholders})
+        ORDER BY mte.ordem ASC, mte.id ASC
+      `;
+
+      db.all(sqlExercicios, ids, (exErr, rowsExercicios) => {
+        if (exErr) return callback(exErr);
+
+        const mapaModelos = new Map();
+        modelos.forEach((m) => {
+          mapaModelos.set(m.id, {
+            ...m,
+            divisoes: [],
+            exercicios: [],
+          });
+        });
+
+        // Mapeia divisões por modelo e prepara mapa de divisões
+        const mapaDivisoes = new Map();
+        (rowsDivisoes || []).forEach((d) => {
+          const mod = mapaModelos.get(d.modelo_id);
+          const divisaoObj = {
+            id: d.id,
+            modelo_id: d.modelo_id,
+            nome: d.nome,
+            descricao: d.descricao || '',
+            ordem: Number(d.ordem || 1),
+            exercicios: [],
+          };
+          mapaDivisoes.set(d.id, divisaoObj);
+          if (mod) {
+            mod.divisoes.push(divisaoObj);
+          }
+        });
+
+        // Se algum modelo não tiver divisões cadastradas, cria uma virtual padrão
+        mapaModelos.forEach((mod) => {
+          if (mod.divisoes.length === 0) {
+            const divPadrao = {
+              id: null,
+              modelo_id: mod.id,
+              nome: mod.divisao || 'Treino A',
+              descricao: 'Divisão Geral',
+              ordem: 1,
+              exercicios: [],
+            };
+            mod.divisoes.push(divPadrao);
+          }
+        });
+
+        // Associa exercícios às suas divisões correspondentes
+        (rowsExercicios || []).forEach((item) => {
+          const mod = mapaModelos.get(item.modelo_id);
+          if (!mod) return;
+
+          const exercicioItem = {
+            id: item.id,
+            modelo_id: item.modelo_id,
+            divisao_id: item.divisao_id,
+            exercicio_id: item.exercicio_id,
+            nome: item.exercicio_nome,
+            equipamento: item.exercicio_equipamento,
+            dificuldade: item.exercicio_dificuldade,
+            imagem_url: item.exercicio_imagem_url,
+            video_url: item.exercicio_video_url,
+            ordem: Number(item.ordem || 1),
+            series: item.series || '3',
+            repeticoes: item.repeticoes || '12',
+            carga: item.carga || '',
+            descanso: item.descanso || '60s',
+            observacao: item.observacao || '',
+          };
+
+          // Adiciona na lista consolidada do modelo para compatibilidade
+          mod.exercicios.push(exercicioItem);
+
+          // Associa à divisão específica
+          let targetDiv = item.divisao_id ? mapaDivisoes.get(item.divisao_id) : null;
+          if (!targetDiv) {
+            targetDiv = mod.divisoes[0];
+          }
+          if (targetDiv) {
+            targetDiv.exercicios.push(exercicioItem);
+          }
+        });
+
+        callback(null, Array.from(mapaModelos.values()));
+      });
+    });
+  },
+
+  salvarDivisoesEItens: (modeloId, divisoes = [], callback) => {
+    let listaDivisoes = Array.isArray(divisoes) ? divisoes : [];
+
+    if (listaDivisoes.length === 0) {
+      listaDivisoes = [
+        {
+          nome: 'Treino A',
+          descricao: 'Divisão Principal',
+          ordem: 1,
+          exercicios: [],
+        },
+      ];
+    }
+
+    db.run(`DELETE FROM modelo_treino_exercicios WHERE modelo_id = ?`, [modeloId], (delExErr) => {
+      if (delExErr) return callback(delExErr);
+
+      db.run(`DELETE FROM divisoes_treino WHERE modelo_id = ?`, [modeloId], (delDivErr) => {
+        if (delDivErr) return callback(delDivErr);
+
+        let divisoesProcessadas = 0;
+        let falhou = false;
+
+        listaDivisoes.forEach((divisao, idxDiv) => {
+          if (falhou) return;
+
+          const nomeDivisao =
+            divisao.nome && String(divisao.nome).trim()
+              ? String(divisao.nome).trim()
+              : `Treino ${String.fromCharCode(65 + idxDiv)}`;
+          const ordemDivisao = Number(divisao.ordem || idxDiv + 1);
+          const descDivisao = divisao.descricao ? String(divisao.descricao).trim() : null;
+
+          db.run(
+            `INSERT INTO divisoes_treino (modelo_id, nome, descricao, ordem) VALUES (?, ?, ?, ?)`,
+            [modeloId, nomeDivisao, descDivisao, ordemDivisao],
+            function (insertDivErr) {
+              if (falhou) return;
+              if (insertDivErr) {
+                falhou = true;
+                return callback(insertDivErr);
+              }
+
+              const novaDivisaoId = this && this.lastID ? this.lastID : null;
+              const exerciciosDaDiv = Array.isArray(divisao.exercicios) ? divisao.exercicios : [];
+
+              if (exerciciosDaDiv.length === 0) {
+                divisoesProcessadas += 1;
+                if (divisoesProcessadas === listaDivisoes.length) {
+                  callback(null);
+                }
+                return;
+              }
+
+              let exProcessados = 0;
+              exerciciosDaDiv.forEach((itemEx, idxEx) => {
+                if (falhou) return;
+                const exId = Number(itemEx.exercicio_id);
+                if (!exId) {
+                  exProcessados += 1;
+                  if (exProcessados === exerciciosDaDiv.length) {
+                    divisoesProcessadas += 1;
+                    if (divisoesProcessadas === listaDivisoes.length) {
+                      callback(null);
+                    }
+                  }
+                  return;
+                }
+
+                db.run(
+                  `
+                  INSERT INTO modelo_treino_exercicios
+                    (modelo_id, divisao_id, exercicio_id, ordem, series, repeticoes, carga, descanso, observacao)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                  [
+                    modeloId,
+                    novaDivisaoId,
+                    exId,
+                    Number(itemEx.ordem || idxEx + 1),
+                    itemEx.series ? String(itemEx.series).trim() : '3',
+                    itemEx.repeticoes ? String(itemEx.repeticoes).trim() : '12',
+                    itemEx.carga ? String(itemEx.carga).trim() : null,
+                    itemEx.descanso ? String(itemEx.descanso).trim() : null,
+                    itemEx.observacao ? String(itemEx.observacao).trim() : null,
+                  ],
+                  (insertExErr) => {
+                    if (falhou) return;
+                    if (insertExErr) {
+                      falhou = true;
+                      return callback(insertExErr);
+                    }
+
+                    exProcessados += 1;
+                    if (exProcessados === exerciciosDaDiv.length) {
+                      divisoesProcessadas += 1;
+                      if (divisoesProcessadas === listaDivisoes.length) {
+                        callback(null);
+                      }
+                    }
+                  }
+                );
+              });
+            }
+          );
+        });
+      });
+    });
+  },
+
+  listar: ({ busca = '', academia_id = '', modalidadeId = '', nivel = '', apenasAtivos = false } = {}, callback) => {
+    const params = [];
+    const conditions = [];
+
+    let sql = `
+      SELECT
+        mt.*,
+        m.nome AS modalidade_nome,
+        nd.nome AS nivel_nome,
+        u.nome AS professor_nome,
+        COALESCE(COUNT(DISTINCT amt.aluno_id), 0) AS total_alunos_vinculados
+      FROM modelos_treino mt
+      LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+      LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
+      LEFT JOIN usuarios u ON u.id = mt.professor_id
+      LEFT JOIN aluno_modelos_treino amt ON amt.modelo_id = mt.id AND amt.ativo = 1
+    `;
+
+    if (academia_id && String(academia_id).trim() !== '') {
+      conditions.push(`mt.academia_id = ?`);
+      params.push(Number(academia_id));
+    }
+
+    if (busca && busca.trim() !== '') {
+      const termo = `%${busca.trim()}%`;
+      conditions.push(
+        `(LOWER(mt.nome) LIKE LOWER(?) OR LOWER(COALESCE(mt.descricao, '')) LIKE LOWER(?) OR LOWER(COALESCE(mt.objetivo, '')) LIKE LOWER(?))`
+      );
+      params.push(termo, termo, termo);
+    }
+
+    if (modalidadeId && String(modalidadeId).trim() !== '') {
+      conditions.push(`mt.modalidade_id = ?`);
+      params.push(Number(modalidadeId));
+    }
+
+    if (nivel && String(nivel).trim() !== '') {
+      conditions.push(`(LOWER(mt.nivel) = LOWER(?) OR LOWER(COALESCE(nd.slug, '')) = LOWER(?))`);
+      params.push(nivel.trim(), nivel.trim());
+    }
+
+    if (apenasAtivos) {
+      conditions.push(`mt.ativo = 1`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    sql += ` GROUP BY mt.id, mt.nome, m.nome, nd.nome, u.nome ORDER BY mt.nome ASC, mt.id DESC`;
+
+    db.all(sql, params, (err, rows) => {
+      if (err) return callback(err);
+      ModeloTreino.anexarDivisoesEExercicios(rows || [], callback);
+    });
+  },
+
+  buscarPorId: (id, callback) => {
+    const sql = `
+      SELECT
+        mt.*,
+        m.nome AS modalidade_nome,
+        nd.nome AS nivel_nome,
+        u.nome AS professor_nome,
+        COALESCE(COUNT(DISTINCT amt.aluno_id), 0) AS total_alunos_vinculados
+      FROM modelos_treino mt
+      LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+      LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
+      LEFT JOIN usuarios u ON u.id = mt.professor_id
+      LEFT JOIN aluno_modelos_treino amt ON amt.modelo_id = mt.id AND amt.ativo = 1
+      WHERE mt.id = ?
+      GROUP BY mt.id, mt.nome, m.nome, nd.nome, u.nome
+    `;
+
+    db.get(sql, [id], (err, row) => {
+      if (err) return callback(err);
+      if (!row) return callback(null, null);
+
+      ModeloTreino.anexarDivisoesEExercicios([row], (itemErr, lista) => {
+        if (itemErr) return callback(itemErr);
+        callback(null, lista[0] || null);
+      });
+    });
+  },
+
+  criar: (dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      divisao = 'Treino A',
+      modalidade_id = null,
+      nivel_id = null,
+      nivel = 'intermediario',
+      objetivo = null,
+      professor_id = null,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = dados;
+
+    const sql = `
+      INSERT INTO modelos_treino
+        (nome, descricao, divisao, modalidade_id, nivel_id, nivel, objetivo, professor_id, ativo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      divisao && divisao.trim() ? divisao.trim() : 'Treino A',
+      modalidade_id ? Number(modalidade_id) : null,
+      nivel_id ? Number(nivel_id) : null,
+      nivel || 'intermediario',
+      objetivo ? objetivo.trim() : null,
+      professor_id ? Number(professor_id) : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+    ];
+
+    db.run(sql, params, function (err) {
+      if (err) return callback(err);
+      const novoId = this && this.lastID ? this.lastID : null;
+      if (!novoId) return callback(new Error('Não foi possível obter o ID do modelo criado.'));
+
+      const divisoesParaSalvar =
+        Array.isArray(divisoes) && divisoes.length > 0
+          ? divisoes
+          : [
+              {
+                nome: divisao || 'Treino A',
+                descricao: 'Divisão Principal',
+                ordem: 1,
+                exercicios: Array.isArray(exercicios) ? exercicios : [],
+              },
+            ];
+
+      ModeloTreino.salvarDivisoesEItens(novoId, divisoesParaSalvar, (saveErr) => {
+        if (saveErr) return callback(saveErr);
+        ModeloTreino.buscarPorId(novoId, callback);
+      });
+    });
+  },
+
+  atualizar: (id, dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      divisao = 'Treino A',
+      modalidade_id = null,
+      nivel_id = null,
+      nivel = 'intermediario',
+      objetivo = null,
+      professor_id = null,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = dados;
+
+    const sql = `
+      UPDATE modelos_treino
+      SET nome = ?, descricao = ?, divisao = ?, modalidade_id = ?, nivel_id = ?, nivel = ?, objetivo = ?, professor_id = COALESCE(?, professor_id), ativo = ?
+      WHERE id = ?
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      divisao && divisao.trim() ? divisao.trim() : 'Treino A',
+      modalidade_id ? Number(modalidade_id) : null,
+      nivel_id ? Number(nivel_id) : null,
+      nivel || 'intermediario',
+      objetivo ? objetivo.trim() : null,
+      professor_id ? Number(professor_id) : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+      id,
+    ];
+
+    db.run(sql, params, (err) => {
+      if (err) return callback(err);
+
+      const divisoesParaSalvar =
+        Array.isArray(divisoes) && divisoes.length > 0
+          ? divisoes
+          : [
+              {
+                nome: divisao || 'Treino A',
+                descricao: 'Divisão Principal',
+                ordem: 1,
+                exercicios: Array.isArray(exercicios) ? exercicios : [],
+              },
+            ];
+
+      ModeloTreino.salvarDivisoesEItens(id, divisoesParaSalvar, (saveErr) => {
+        if (saveErr) return callback(saveErr);
+        ModeloTreino.buscarPorId(id, callback);
+      });
+    });
+  },
+
+  duplicar: (id, novoNome = null, callback) => {
+    ModeloTreino.buscarPorId(id, (err, original) => {
+      if (err) return callback(err);
+      if (!original) return callback(null, null);
+
+      const nomeCopia =
+        novoNome && String(novoNome).trim()
+          ? String(novoNome).trim()
+          : `${original.nome} (Cópia)`;
+
+      ModeloTreino.criar(
+        {
+          nome: nomeCopia,
+          descricao: original.descricao,
+          divisao: original.divisao,
+          modalidade_id: original.modalidade_id,
+          nivel_id: original.nivel_id,
+          nivel: original.nivel,
+          objetivo: original.objetivo,
+          professor_id: original.professor_id,
+          ativo: original.ativo,
+          divisoes: original.divisoes || [],
+        },
+        callback
+      );
+    });
+  },
+
+  deletar: (id, callback) => {
+    db.get(
+      `SELECT COUNT(*) as total FROM aluno_modelos_treino WHERE modelo_id = ? AND ativo = 1`,
+      [id],
+      (checkErr, row) => {
+        if (checkErr) return callback(checkErr);
+        const totalAlunos = Number(row?.total || 0);
+
+        if (totalAlunos > 0) {
+          const erroVinculo = new Error(
+            `Não é possível excluir este modelo porque ele está ativamente atribuído a ${totalAlunos} aluno(s). Remova a atribuição dos alunos antes de excluir o modelo.`
+          );
+          erroVinculo.status = 400;
+          return callback(erroVinculo);
+        }
+
+        db.run(`DELETE FROM modelos_treino WHERE id = ?`, [id], function (delErr) {
+          if (delErr) return callback(delErr);
+          callback(null, {
+            deleted: true,
+            changes: this && typeof this.changes === 'number' ? this.changes : 0,
+          });
+        });
+      }
+    );
+  },
+};
+
+module.exports = ModeloTreino;

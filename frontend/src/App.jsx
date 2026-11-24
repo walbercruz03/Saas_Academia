@@ -4,10 +4,12 @@ import Login from './pages/Login';
 import CadastroAdmin from './pages/CadastroAdmin';
 import Planos from './pages/Planos';
 import Alunos from './pages/Alunos';
+import AlunoDetalhes from './pages/AlunoDetalhes';
 import Treinos from './pages/Treinos';
 import Exercicios from './pages/Exercicios';
 import GruposMusculares from './pages/GruposMusculares';
 import ModelosTreino from './pages/ModelosTreino';
+import ConfiguracoesTreino from './pages/ConfiguracoesTreino';
 import AcompanhamentoTreinos from './pages/AcompanhamentoTreinos';
 import Checkin from './pages/Checkin';
 import Matriculas from './pages/Matriculas';
@@ -38,10 +40,12 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/planos" element={<Planos />} />
           <Route path="/alunos" element={<Alunos />} />
+          <Route path="/alunos/:id" element={<AlunoDetalhes />} />
           <Route path="/treinos" element={<Treinos />} />
           <Route path="/treinos/exercicios" element={<Exercicios />} />
           <Route path="/treinos/grupos-musculares" element={<GruposMusculares />} />
           <Route path="/treinos/modelos" element={<ModelosTreino />} />
+          <Route path="/treinos/configuracoes" element={<ConfiguracoesTreino />} />
           <Route path="/treinos/acompanhamento" element={<AcompanhamentoTreinos />} />
           <Route path="/matriculas" element={<Matriculas />} />
           <Route path="/checkin" element={<Checkin />} />

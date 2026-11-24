@@ -3,7 +3,7 @@ const Treino = require('../models/Treino');
 const treinoController = {
   // Listar todos os treinos
   listar: (req, res) => {
-    Treino.listarTodos((err, rows) => {
+    Treino.listarTodos({ academia_id: req.usuario.academia_id }, (err, rows) => {
       if (err) {
         return res.status(500).json({ erro: 'Erro ao buscar treinos.' });
       }

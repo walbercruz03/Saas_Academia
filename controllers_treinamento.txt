@@ -1,0 +1,726 @@
+]633;E;for arquivo in backend/src/controllers/exercicioController.js backend/src/controllers/modeloTreinoController.js backend/src/controllers/grupoMuscularController.js backend/src/routes/exercicioRoutes.js backend/src/routes/modeloTreinoRoutes.js backend/src/migrations/runner.js backend/src/middlewares/authMiddleware.js backend/src/server.js;4a42a1ea-5875-45c4-89d4-f0f171add260]633;C
+==========================================
+ARQUIVO: backend/src/controllers/exercicioController.js
+==========================================
+const Exercicio = require('../models/Exercicio');
+
+const DIFICULDADES_VALIDAS = ['iniciante', 'intermediario', 'avancado'];
+
+const exercicioController = {
+  listar(req, res) {
+    const { busca = '', equipamento = '', dificuldade = '', grupo_muscular_id = '', apenas_ativos = '' } = req.query;
+
+    Exercicio.listar(
+      {
+        busca,
+        equipamento,
+        dificuldade,
+        grupoMuscularId: grupo_muscular_id,
+        apenasAtivos: apenas_ativos === '1' || apenas_ativos === 'true',
+      },
+      (err, rows) => {
+        if (err) {
+          console.error('Erro ao listar exercícios:', err.message);
+          return res.status(500).json({ erro: 'Erro ao listar exercícios.' });
+        }
+        return res.json(rows || []);
+      }
+    );
+  },
+
+  buscarPorId(req, res) {
+    const { id } = req.params;
+    Exercicio.buscarPorId(id, (err, exercicio) => {
+      if (err) {
+        console.error('Erro ao buscar exercício:', err.message);
+        return res.status(500).json({ erro: 'Erro ao buscar exercício.' });
+      }
+      if (!exercicio) {
+        return res.status(404).json({ erro: 'Exercício não encontrado.' });
+      }
+      return res.json(exercicio);
+    });
+  },
+
+  criar(req, res) {
+    const {
+      nome,
+      descricao,
+      instrucoes,
+      equipamento,
+      dificuldade = 'intermediario',
+      imagem_url,
+      video_url,
+      ativo,
+      grupos_principais = [],
+      grupos_secundarios = [],
+    } = req.body || {};
+
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
+    }
+
+    Exercicio.criar(
+      {
+        nome,
+        descricao,
+        instrucoes,
+        equipamento,
+        dificuldade: String(dificuldade || 'intermediario').toLowerCase().trim(),
+        imagem_url,
+        video_url,
+        ativo,
+        grupos_principais,
+        grupos_secundarios,
+      },
+      (err, criado) => {
+        if (err) {
+          console.error('Erro ao criar exercício:', err.message);
+          return res.status(500).json({ erro: 'Erro ao criar exercício.' });
+        }
+        return res.status(201).json(criado);
+      }
+    );
+  },
+
+  atualizar(req, res) {
+    const { id } = req.params;
+    const {
+      nome,
+      descricao,
+      instrucoes,
+      equipamento,
+      dificuldade = 'intermediario',
+      imagem_url,
+      video_url,
+      ativo,
+      grupos_principais = [],
+      grupos_secundarios = [],
+    } = req.body || {};
+
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
+    }
+
+    Exercicio.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar exercício:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao atualizar exercício.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Exercício não encontrado.' });
+      }
+
+      Exercicio.atualizar(
+        id,
+        {
+          nome,
+          descricao,
+          instrucoes,
+          equipamento,
+          dificuldade: String(dificuldade || 'intermediario').toLowerCase().trim(),
+          imagem_url,
+          video_url,
+          ativo,
+          grupos_principais,
+          grupos_secundarios,
+        },
+        (err, atualizado) => {
+          if (err) {
+            console.error('Erro ao atualizar exercício:', err.message);
+            return res.status(500).json({ erro: 'Erro ao atualizar exercício.' });
+          }
+          return res.json(atualizado);
+        }
+      );
+    });
+  },
+
+  deletar(req, res) {
+    const { id } = req.params;
+    Exercicio.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar exercício:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao excluir exercício.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Exercício não encontrado.' });
+      }
+
+      Exercicio.deletar(id, (err) => {
+        if (err) {
+          console.error('Erro ao excluir exercício:', err.message);
+          return res.status(500).json({ erro: 'Erro ao excluir exercício.' });
+        }
+        return res.json({ mensagem: 'Exercício removido com sucesso.' });
+      });
+    });
+  },
+};
+
+module.exports = exercicioController;
+==========================================
+ARQUIVO: backend/src/controllers/modeloTreinoController.js
+==========================================
+const ModeloTreino = require('../models/ModeloTreino');
+
+const modeloTreinoController = {
+  listar(req, res) {
+    const { busca = '', modalidade_id = '', nivel_id = '', nivel = '', apenas_ativos = '' } = req.query;
+
+    ModeloTreino.listar(
+      {
+        busca,
+        modalidadeId: modalidade_id,
+        nivelId: nivel_id,
+        nivel,
+        apenasAtivos: apenas_ativos === '1' || apenas_ativos === 'true',
+      },
+      (err, rows) => {
+        if (err) {
+          console.error('Erro ao listar modelos de treino:', err.message);
+          return res.status(500).json({ erro: 'Erro ao listar modelos de treino.' });
+        }
+        return res.json(rows || []);
+      }
+    );
+  },
+
+  buscarPorId(req, res) {
+    const { id } = req.params;
+    ModeloTreino.buscarPorId(id, (err, modelo) => {
+      if (err) {
+        console.error('Erro ao buscar modelo de treino:', err.message);
+        return res.status(500).json({ erro: 'Erro ao buscar modelo de treino.' });
+      }
+      if (!modelo) {
+        return res.status(404).json({ erro: 'Modelo de treino não encontrado.' });
+      }
+      return res.json(modelo);
+    });
+  },
+
+  criar(req, res) {
+    const {
+      nome,
+      descricao,
+      divisao = 'Treino A',
+      modalidade_id,
+      nivel_id,
+      nivel = 'intermediario',
+      objetivo,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = req.body || {};
+
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do modelo de treino é obrigatório.' });
+    }
+
+    const professor_id = req.usuario?.id || null;
+
+    ModeloTreino.criar(
+      {
+        nome,
+        descricao,
+        divisao,
+        modalidade_id: modalidade_id ? Number(modalidade_id) : null,
+        nivel_id: nivel_id ? Number(nivel_id) : null,
+        nivel: String(nivel || 'intermediario').toLowerCase().trim(),
+        objetivo,
+        professor_id,
+        ativo,
+        divisoes,
+        exercicios,
+      },
+      (err, criado) => {
+        if (err) {
+          console.error('Erro ao criar modelo de treino:', err.message);
+          return res.status(500).json({ erro: 'Erro ao criar modelo de treino.' });
+        }
+        return res.status(201).json(criado);
+      }
+    );
+  },
+
+  atualizar(req, res) {
+    const { id } = req.params;
+    const {
+      nome,
+      descricao,
+      divisao = 'Treino A',
+      modalidade_id,
+      nivel_id,
+      nivel = 'intermediario',
+      objetivo,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = req.body || {};
+
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do modelo de treino é obrigatório.' });
+    }
+
+    ModeloTreino.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar modelo de treino:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao atualizar modelo de treino.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Modelo de treino não encontrado.' });
+      }
+
+      ModeloTreino.atualizar(
+        id,
+        {
+          nome,
+          descricao,
+          divisao,
+          modalidade_id: modalidade_id ? Number(modalidade_id) : null,
+          nivel_id: nivel_id ? Number(nivel_id) : null,
+          nivel: String(nivel || 'intermediario').toLowerCase().trim(),
+          objetivo,
+          professor_id: req.usuario?.id || existente.professor_id,
+          ativo,
+          divisoes,
+          exercicios,
+        },
+        (err, atualizado) => {
+          if (err) {
+            console.error('Erro ao atualizar modelo de treino:', err.message);
+            return res.status(500).json({ erro: 'Erro ao atualizar modelo de treino.' });
+          }
+          return res.json(atualizado);
+        }
+      );
+    });
+  },
+
+  duplicar(req, res) {
+    const { id } = req.params;
+    const { nome } = req.body || {};
+
+    ModeloTreino.duplicar(id, nome, (err, duplicado) => {
+      if (err) {
+        console.error('Erro ao duplicar modelo de treino:', err.message);
+        return res.status(500).json({ erro: 'Erro ao duplicar modelo de treino.' });
+      }
+      if (!duplicado) {
+        return res.status(404).json({ erro: 'Modelo de treino não encontrado.' });
+      }
+      return res.status(201).json(duplicado);
+    });
+  },
+
+  deletar(req, res) {
+    const { id } = req.params;
+    ModeloTreino.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar modelo de treino:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao excluir modelo de treino.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Modelo de treino não encontrado.' });
+      }
+
+      ModeloTreino.deletar(id, (err) => {
+        if (err) {
+          if (err.status === 400) {
+            return res.status(400).json({ erro: err.message });
+          }
+          console.error('Erro ao excluir modelo de treino:', err.message);
+          return res.status(500).json({ erro: 'Erro ao excluir modelo de treino.' });
+        }
+        return res.json({ mensagem: 'Modelo de treino removido com sucesso.' });
+      });
+    });
+  },
+};
+
+module.exports = modeloTreinoController;
+
+==========================================
+ARQUIVO: backend/src/controllers/grupoMuscularController.js
+==========================================
+const GrupoMuscular = require('../models/GrupoMuscular');
+
+const grupoMuscularController = {
+  listar(req, res) {
+    const { busca = '' } = req.query;
+    GrupoMuscular.listar({ busca }, (err, rows) => {
+      if (err) {
+        console.error('Erro ao listar grupos musculares:', err.message);
+        return res.status(500).json({ erro: 'Erro ao listar grupos musculares.' });
+      }
+      return res.json(rows || []);
+    });
+  },
+
+  buscarPorId(req, res) {
+    const { id } = req.params;
+    GrupoMuscular.buscarPorId(id, (err, grupo) => {
+      if (err) {
+        console.error('Erro ao buscar grupo muscular:', err.message);
+        return res.status(500).json({ erro: 'Erro ao buscar grupo muscular.' });
+      }
+      if (!grupo) {
+        return res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
+      }
+      return res.json(grupo);
+    });
+  },
+
+  criar(req, res) {
+    const { nome, descricao } = req.body || {};
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do grupo muscular é obrigatório.' });
+    }
+
+    GrupoMuscular.criar({ nome, descricao }, (err, criado) => {
+      if (err) {
+        if (/unique|duplicate/i.test(err.message)) {
+          return res.status(409).json({ erro: 'Já existe um grupo muscular com esse nome.' });
+        }
+        console.error('Erro ao criar grupo muscular:', err.message);
+        return res.status(500).json({ erro: 'Erro ao criar grupo muscular.' });
+      }
+      return res.status(201).json(criado);
+    });
+  },
+
+  atualizar(req, res) {
+    const { id } = req.params;
+    const { nome, descricao } = req.body || {};
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ erro: 'O nome do grupo muscular é obrigatório.' });
+    }
+
+    GrupoMuscular.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar grupo muscular:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao atualizar grupo muscular.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
+      }
+
+      GrupoMuscular.atualizar(id, { nome, descricao }, (err, atualizado) => {
+        if (err) {
+          if (/unique|duplicate/i.test(err.message)) {
+            return res.status(409).json({ erro: 'Já existe um grupo muscular com esse nome.' });
+          }
+          console.error('Erro ao atualizar grupo muscular:', err.message);
+          return res.status(500).json({ erro: 'Erro ao atualizar grupo muscular.' });
+        }
+        return res.json(atualizado);
+      });
+    });
+  },
+
+  deletar(req, res) {
+    const { id } = req.params;
+    GrupoMuscular.buscarPorId(id, (buscaErr, existente) => {
+      if (buscaErr) {
+        console.error('Erro ao verificar grupo muscular:', buscaErr.message);
+        return res.status(500).json({ erro: 'Erro ao excluir grupo muscular.' });
+      }
+      if (!existente) {
+        return res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
+      }
+
+      GrupoMuscular.deletar(id, (err) => {
+        if (err) {
+          console.error('Erro ao excluir grupo muscular:', err.message);
+          return res.status(500).json({ erro: 'Erro ao excluir grupo muscular.' });
+        }
+        return res.json({ mensagem: 'Grupo muscular removido com sucesso.' });
+      });
+    });
+  },
+};
+
+module.exports = grupoMuscularController;
+==========================================
+ARQUIVO: backend/src/routes/exercicioRoutes.js
+==========================================
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middlewares/authMiddleware');
+const exercicioController = require('../controllers/exercicioController');
+
+router.get('/', authMiddleware, exercicioController.listar);
+router.get('/:id', authMiddleware, exercicioController.buscarPorId);
+router.post('/', authMiddleware, exercicioController.criar);
+router.put('/:id', authMiddleware, exercicioController.atualizar);
+router.delete('/:id', authMiddleware, exercicioController.deletar);
+
+module.exports = router;
+==========================================
+ARQUIVO: backend/src/routes/modeloTreinoRoutes.js
+==========================================
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middlewares/authMiddleware');
+const modeloTreinoController = require('../controllers/modeloTreinoController');
+
+router.get('/', authMiddleware, modeloTreinoController.listar);
+router.get('/:id', authMiddleware, modeloTreinoController.buscarPorId);
+router.post('/', authMiddleware, modeloTreinoController.criar);
+router.post('/:id/duplicar', authMiddleware, modeloTreinoController.duplicar);
+router.put('/:id', authMiddleware, modeloTreinoController.atualizar);
+router.delete('/:id', authMiddleware, modeloTreinoController.deletar);
+
+module.exports = router;
+
+==========================================
+ARQUIVO: backend/src/migrations/runner.js
+==========================================
+const fs = require('fs');
+const path = require('path');
+const db = require('../config/database');
+
+function executarConsulta(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve({ lastID: this?.lastID, changes: this?.changes });
+    });
+  });
+}
+
+function buscarTodas(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows || []);
+    });
+  });
+}
+
+async function garantirTabelaMigracoes() {
+  const sql = `
+    CREATE TABLE IF NOT EXISTS _migracoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL UNIQUE,
+      executado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  await executarConsulta(sql);
+}
+
+async function executarMigracoes() {
+  await garantirTabelaMigracoes();
+
+  const migracoesExecutadasRows = await buscarTodas(`SELECT nome FROM _migracoes`);
+  const executadas = new Set(migracoesExecutadasRows.map((r) => r.nome));
+
+  const diretorioMigracoes = __dirname;
+  const arquivos = fs
+    .readdirSync(diretorioMigracoes)
+    .filter((f) => f.endsWith('.js') && f !== 'runner.js')
+    .sort();
+
+  for (const arquivo of arquivos) {
+    if (executadas.has(arquivo)) {
+      continue;
+    }
+
+    console.log(`[MIGRAÇÕES] Executando migração: ${arquivo}...`);
+    const migracao = require(path.join(diretorioMigracoes, arquivo));
+
+    if (typeof migracao.up !== 'function') {
+      throw new Error(`Migração ${arquivo} não exporta o método "up".`);
+    }
+
+    await migracao.up(db);
+    await executarConsulta(`INSERT INTO _migracoes (nome) VALUES (?)`, [arquivo]);
+    console.log(`[MIGRAÇÕES] Migração ${arquivo} concluída com sucesso.`);
+  }
+
+  return { sucesso: true, total: arquivos.length };
+}
+
+if (require.main === module) {
+  executarMigracoes()
+    .then(() => {
+      console.log('[MIGRAÇÕES] Todas as migrações foram executadas com sucesso.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('[MIGRAÇÕES] Erro ao executar migrações:', err);
+      process.exit(1);
+    });
+}
+
+module.exports = {
+  executarMigracoes,
+};
+
+==========================================
+ARQUIVO: backend/src/middlewares/authMiddleware.js
+==========================================
+const jwt = require('jsonwebtoken');
+
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    return res.status(401).json({ mensagem: 'Token não fornecido.' });
+  }
+
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ mensagem: 'Formato de token inválido.' });
+  }
+
+  const token = parts[1];
+  const secret = process.env.JWT_SECRET || 'wcfit_secret_dev';
+
+  jwt.verify(token, secret, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ mensagem: 'Token inválido ou expirado.' });
+    }
+
+    req.usuario = {
+      id: decoded.id,
+      nome: decoded.nome,
+      email_ou_matricula: decoded.email_ou_matricula,
+      cargo: decoded.cargo,
+    };
+
+    next();
+  });
+};
+
+module.exports = authMiddleware;
+
+==========================================
+ARQUIVO: backend/src/server.js
+==========================================
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const db = require('./config/database');
+const Usuario = require('./models/Usuario');
+const Plano = require('./models/Plano');
+const Aluno = require('./models/Aluno');
+const Matricula = require('./models/Matricula');
+const Checkin = require('./models/Checkin');
+const Treino = require('./models/Treino');
+const GrupoMuscular = require('./models/GrupoMuscular');
+const Exercicio = require('./models/Exercicio');
+const ModeloTreino = require('./models/ModeloTreino');
+const ExecucaoTreino = require('./models/ExecucaoTreino');
+const Financeiro = require('./models/Financeiro');
+const { executarMigracoes } = require('./migrations/runner');
+
+const authRoutes = require('./routes/authRoutes');
+const usuarioRoutes = require('./routes/usuarioRoutes');
+const planoRoutes = require('./routes/planoRoutes');
+const alunoRoutes = require('./routes/alunoRoutes');
+const matriculaRoutes = require('./routes/matriculaRoutes');
+const checkinRoutes = require('./routes/checkinRoutes');
+const relatorioRoutes = require('./routes/relatorioRoutes');
+const treinoRoutes = require('./routes/treinoRoutes');
+const grupoMuscularRoutes = require('./routes/grupoMuscularRoutes');
+const exercicioRoutes = require('./routes/exercicioRoutes');
+const modeloTreinoRoutes = require('./routes/modeloTreinoRoutes');
+const execucaoTreinoRoutes = require('./routes/execucaoTreinoRoutes');
+const financeiroRoutes = require('./routes/financeiroRoutes');
+const modalidadeRoutes = require('./routes/modalidadeRoutes');
+const nivelDificuldadeRoutes = require('./routes/nivelDificuldadeRoutes');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json());
+
+// Inicializa tabelas respeitando a ordem das chaves estrangeiras
+db.serialize(() => {
+  Usuario.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela usuarios:', err.message);
+    else console.log('Tabela usuarios verificada/criada.');
+  });
+  Plano.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela planos:', err.message);
+    else console.log('Tabela planos verificada/criada.');
+  });
+  Aluno.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela alunos:', err.message);
+    else console.log('Tabela alunos verificada/criada.');
+  });
+  Matricula.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela matriculas:', err.message);
+    else console.log('Tabela matriculas verificada/criada.');
+  });
+  Checkin.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela checkins:', err.message);
+    else console.log('Tabela checkins verificada/criada.');
+  });
+  Treino.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela treinos:', err.message);
+    else {
+      console.log('Tabela treinos verificada/criada.');
+      ExecucaoTreino.criarTabela((execErr) => {
+        if (execErr) console.error('Erro ao criar tabela execucoes_treino:', execErr.message);
+        else console.log('Tabela execucoes_treino verificada/criada.');
+      });
+    }
+  });
+  GrupoMuscular.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela grupos_musculares:', err.message);
+    else {
+      console.log('Tabela grupos_musculares verificada/criada.');
+      Exercicio.criarTabela((exErr) => {
+        if (exErr) console.error('Erro ao criar tabelas exercicios / exercicio_grupos_musculares:', exErr.message);
+        else {
+          console.log('Tabelas exercicios e exercicio_grupos_musculares verificadas/criadas.');
+          ModeloTreino.criarTabela((modErr) => {
+            if (modErr) console.error('Erro ao criar tabelas modelos_treino / modelo_treino_exercicios:', modErr.message);
+            else console.log('Tabelas modelos_treino e modelo_treino_exercicios verificadas/criadas.');
+          });
+        }
+      });
+    }
+  });
+  Financeiro.criarTabela((err) => {
+    if (err) console.error('Erro ao criar tabela movimentacoes_financeiras:', err.message);
+    else console.log('Tabela movimentacoes_financeiras verificada/criada.');
+  });
+
+  executarMigracoes().catch((err) => {
+    console.error('[MIGRAÇÕES] Erro ao sincronizar migrações no startup:', err.message);
+  });
+});
+
+// Rotas
+app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/planos', planoRoutes);
+app.use('/api/alunos', alunoRoutes);
+app.use('/api/matriculas', matriculaRoutes);
+app.use('/api/checkin', checkinRoutes);
+app.use('/api/relatorios', relatorioRoutes);
+app.use('/api/treinos', treinoRoutes);
+app.use('/api/grupos-musculares', grupoMuscularRoutes);
+app.use('/api/exercicios', exercicioRoutes);
+app.use('/api/modelos-treino', modeloTreinoRoutes);
+app.use('/api/execucoes-treino', execucaoTreinoRoutes);
+app.use('/api/financeiro', financeiroRoutes);
+app.use('/api/modalidades', modalidadeRoutes);
+app.use('/api/niveis-dificuldade', nivelDificuldadeRoutes);
+
+// Rota de saúde
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'online', servico: 'Wc Fit API' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Wc Fit Servidor rodando em http://localhost:${PORT}`);
+});
+
+module.exports = app;

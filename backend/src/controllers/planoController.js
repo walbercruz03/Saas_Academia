@@ -2,7 +2,9 @@ const Plano = require('../models/Plano');
 
 const planoController = {
   listar(req, res) {
-    Plano.listar((err, planos) => {
+    const { academia_id } = req.query;
+
+    Plano.listar({ academia_id }, (err, planos) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao listar planos.' });
       res.json(planos);
     });
@@ -23,7 +25,7 @@ const planoController = {
       return res.status(400).json({ mensagem: 'Nome do plano é obrigatório.' });
     }
 
-    Plano.create({ nome, descricao, preco, duracao_meses, status }, (err, result) => {
+    Plano.create({ nome, descricao, preco, duracao_meses, status, academia_id: req.usuario.academia_id }, (err, result) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao criar plano.' });
       res.status(201).json({
         mensagem: 'Plano criado com sucesso.',

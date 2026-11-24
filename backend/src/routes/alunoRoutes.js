@@ -15,6 +15,11 @@ router.post('/', authMiddleware, alunoController.create);
 // Atualizar aluno (auth - admin e professor)
 router.put('/:id', authMiddleware, alunoController.atualizar);
 
+// Modelos de treino associados ao aluno (auth - admin e professor)
+router.get('/:id/modelos-treino', authMiddleware, alunoController.listarModelos);
+router.post('/:id/modelos-treino', authMiddleware, alunoController.atribuirModelo);
+router.delete('/:id/modelos-treino/:modeloId', authMiddleware, alunoController.desassociarModelo);
+
 // Excluir aluno (apenas admin)
 router.delete('/:id', authMiddleware, alunoController.excluir);
 

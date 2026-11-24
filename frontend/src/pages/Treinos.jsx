@@ -281,10 +281,10 @@ export default function Treinos() {
     <div className="page-container treinamento-page">
       <div className="page-header">
         <div>
-          <h2>Treinos</h2>
+          <h2>Treinos dos Alunos</h2>
           <p>Prescrição, montagem com biblioteca de exercícios e envio de fichas para alunos</p>
         </div>
-        <Link to="/dashboard">← Voltar</Link>
+        <Link to="/dashboard" className="btn-voltar">← Voltar</Link>
       </div>
 
       {erro && (
@@ -527,13 +527,22 @@ export default function Treinos() {
                           {ex.carga ? ` (${ex.carga})` : ''}
                           {ex.descanso ? ` • Desc: ${ex.descanso}` : ''}
                         </div>
-                        {ex.observacao && <div>Obs: {ex.observacao}</div>}
-                      </div>
+                       {ex.observacao && <div>Obs: {ex.observacao}</div>}                      </div>
                     ))}
                   </div>
                 </div>
 
                 <div className="treino-acoes">
+                  {alunoObj && (
+                    <Link
+                      to={`/alunos/${alunoObj.id}`}
+                      className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
+                      style={{ textDecoration: 'none', textAlign: 'center' }}
+                      title="Ver ficha completa, modelos e histórico do aluno"
+                    >
+                      📋 Ver Ficha & Modelos
+                    </Link>
+                  )}
                   <a
                     href={gerarLinkWhatsApp(t)}
                     target="_blank"

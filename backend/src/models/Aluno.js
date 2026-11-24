@@ -14,22 +14,26 @@ class Aluno {
         foto TEXT,
         contato_emergencia TEXT,
         anamnese TEXT,
-        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        academia_id INTEGER,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (academia_id) REFERENCES academias(id)
       )
     `;
     db.run(sql, callback);
   }
 
-  static create({ nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status = 'ativo' }, callback) {
-    const sql = `INSERT INTO alunos (nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status], function (err) {
+  static create({ nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status = 'ativo', academia_id }, callback) {
+    const sql = `INSERT INTO alunos (nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id], function (err) {
       callback(err, this);
     });
   }
 
-  static listar(callback) {
-    const sql = `SELECT * FROM alunos ORDER BY criado_em DESC`;
-    db.all(sql, [], callback);
+  static listar({ academia_id }, callback) {
+    const conditions = academia_id ? `WHERE academia_id = ?` : '';
+    const params = academia_id ? [academia_id] : [];
+    const sql = `SELECT * FROM alunos ${conditions} ORDER BY criado_em DESC`;
+    db.all(sql, params, callback);
   }
 
   static findById(id, callback) {
@@ -37,9 +41,9 @@ class Aluno {
     db.get(sql, [id], callback);
   }
 
-  static atualizar(id, { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status }, callback) {
-    const sql = `UPDATE alunos SET nome = ?, cpf = ?, telefone = ?, email = ?, data_nascimento = ?, foto = ?, contato_emergencia = ?, anamnese = ?, status = ? WHERE id = ?`;
-    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, id], callback);
+  static atualizar(id, { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id }, callback) {
+    const sql = `UPDATE alunos SET nome = ?, cpf = ?, telefone = ?, email = ?, data_nascimento = ?, foto = ?, contato_emergencia = ?, anamnese = ?, status = ?, academia_id = ? WHERE id = ?`;
+    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id, id], callback);
   }
 
   static excluir(id, callback) {

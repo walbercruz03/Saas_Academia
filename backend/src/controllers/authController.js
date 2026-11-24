@@ -11,6 +11,7 @@ const gerarToken = (usuario) => {
       nome: usuario.nome,
       email_ou_matricula: usuario.email_ou_matricula,
       cargo: usuario.cargo,
+      academia_id: usuario.academia_id,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -19,7 +20,7 @@ const gerarToken = (usuario) => {
 
 const authController = {
   registerAdmin(req, res) {
-    const { nome, idade, cpf, email_ou_matricula, telefone, senha } = req.body;
+    const { nome, idade, cpf, email_ou_matricula, telefone, senha, academia_id } = req.body;
 
     if (!nome || !email_ou_matricula || !senha) {
       return res.status(400).json({ mensagem: 'Nome, e-mail/matrícula e senha são obrigatórios.' });
@@ -34,7 +35,7 @@ const authController = {
       }
 
       Usuario.create(
-        { nome, idade, cpf, email_ou_matricula, telefone, senha, cargo: 'admin' },
+        { nome, idade, cpf, email_ou_matricula, telefone, senha, cargo: 'admin', academia_id },
         (err, result) => {
           if (err) {
             return res.status(500).json({ mensagem: 'Erro ao criar administrador.' });
@@ -49,6 +50,7 @@ const authController = {
               email_ou_matricula,
               telefone,
               cargo: 'admin',
+              academia_id,
             },
           });
         }
@@ -90,6 +92,7 @@ const authController = {
           nome: usuario.nome,
           email_ou_matricula: usuario.email_ou_matricula,
           cargo: usuario.cargo,
+          academia_id: usuario.academia_id,
         },
       });
     });

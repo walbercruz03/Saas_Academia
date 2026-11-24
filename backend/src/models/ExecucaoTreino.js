@@ -5,15 +5,19 @@ const ExecucaoTreino = {
     const sql = `
       CREATE TABLE IF NOT EXISTS execucoes_treino (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        treino_id INTEGER NOT NULL,
+        treino_id INTEGER,
         aluno_id INTEGER NOT NULL,
+        modelo_id INTEGER,
+        divisao_id INTEGER,
+        modelo_nome VARCHAR(150),
+        divisao_nome VARCHAR(150),
+        snapshot_treino_json TEXT,
         data_execucao DATETIME DEFAULT CURRENT_TIMESTAMP,
         duracao_minutos INTEGER,
         percepcao_esforco INTEGER,
         observacao TEXT,
         cargas_json TEXT,
         criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (treino_id) REFERENCES treinos (id) ON DELETE CASCADE,
         FOREIGN KEY (aluno_id) REFERENCES alunos (id) ON DELETE CASCADE
       )
     `;
@@ -22,6 +26,7 @@ const ExecucaoTreino = {
 
   normalizarRow: (row) => {
     if (!row) return null;
+
     let cargas = [];
     if (Array.isArray(row.cargas_json)) {
       cargas = row.cargas_json;
@@ -34,13 +39,25 @@ const ExecucaoTreino = {
       }
     }
 
+    let snapshot_treino = null;
+    if (row.snapshot_treino_json && typeof row.snapshot_treino_json === 'object') {
+      snapshot_treino = row.snapshot_treino_json;
+    } else if (typeof row.snapshot_treino_json === 'string' && row.snapshot_treino_json.trim()) {
+      try {
+        snapshot_treino = JSON.parse(row.snapshot_treino_json);
+      } catch {
+        snapshot_treino = null;
+      }
+    }
+
     return {
       ...row,
       cargas,
+      snapshot_treino,
     };
   },
 
-  listar: ({ alunoId = '', treinoId = '', dataInicio = '', dataFim = '' } = {}, callback) => {
+  listar: ({ alunoId = '', treinoId = '', modeloId = '', dataInicio = '', dataFim = '' } = {}, callback) => {
     const params = [];
     const conditions = [];
 
@@ -48,10 +65,14 @@ const ExecucaoTreino = {
       SELECT
         et.*,
         a.nome AS aluno_nome,
-        t.divisao AS treino_divisao
+        t.divisao AS treino_divisao,
+        COALESCE(et.modelo_nome, m.nome, 'Treino Personalizado') AS modelo_nome,
+        COALESCE(et.divisao_nome, d.nome, t.divisao, 'Sessão Livre') AS divisao_nome
       FROM execucoes_treino et
       LEFT JOIN alunos a ON a.id = et.aluno_id
       LEFT JOIN treinos t ON t.id = et.treino_id
+      LEFT JOIN modelos_treino m ON m.id = et.modelo_id
+      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id
     `;
 
     if (alunoId && String(alunoId).trim() !== '') {
@@ -62,6 +83,11 @@ const ExecucaoTreino = {
     if (treinoId && String(treinoId).trim() !== '') {
       conditions.push(`et.treino_id = ?`);
       params.push(Number(treinoId));
+    }
+
+    if (modeloId && String(modeloId).trim() !== '') {
+      conditions.push(`et.modelo_id = ?`);
+      params.push(Number(modeloId));
     }
 
     if (dataInicio && String(dataInicio).trim() !== '') {
@@ -91,10 +117,14 @@ const ExecucaoTreino = {
       SELECT
         et.*,
         a.nome AS aluno_nome,
-        t.divisao AS treino_divisao
+        t.divisao AS treino_divisao,
+        COALESCE(et.modelo_nome, m.nome, 'Treino Personalizado') AS modelo_nome,
+        COALESCE(et.divisao_nome, d.nome, t.divisao, 'Sessão Livre') AS divisao_nome
       FROM execucoes_treino et
       LEFT JOIN alunos a ON a.id = et.aluno_id
       LEFT JOIN treinos t ON t.id = et.treino_id
+      LEFT JOIN modelos_treino m ON m.id = et.modelo_id
+      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id
       WHERE et.id = ?
     `;
     db.get(sql, [id], (err, row) => {
@@ -105,8 +135,13 @@ const ExecucaoTreino = {
 
   criar: (dados, callback) => {
     const {
-      treino_id,
+      treino_id = null,
       aluno_id,
+      modelo_id = null,
+      divisao_id = null,
+      modelo_nome = null,
+      divisao_nome = null,
+      snapshot_treino = null,
       data_execucao = null,
       duracao_minutos = null,
       percepcao_esforco = null,
@@ -115,37 +150,61 @@ const ExecucaoTreino = {
     } = dados;
 
     const cargasSerializadas = JSON.stringify(Array.isArray(cargas) ? cargas : []);
+    
+    // Constrói ou serializa o snapshot imutável do treino no momento da execução
+    let snapshotFinal = snapshot_treino;
+    if (!snapshotFinal && (modelo_nome || divisao_nome || (cargas && cargas.length > 0))) {
+      snapshotFinal = {
+        modelo_id: modelo_id ? Number(modelo_id) : null,
+        modelo_nome: modelo_nome || 'Treino Personalizado',
+        divisao_id: divisao_id ? Number(divisao_id) : null,
+        divisao_nome: divisao_nome || 'Sessão',
+        exercicios_executados: Array.isArray(cargas) ? cargas : [],
+        gerado_em: new Date().toISOString(),
+      };
+    }
+    const snapshotSerializado = snapshotFinal ? JSON.stringify(snapshotFinal) : null;
 
-    const sql = data_execucao
-      ? `
-        INSERT INTO execucoes_treino
-          (treino_id, aluno_id, data_execucao, duracao_minutos, percepcao_esforco, observacao, cargas_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `
-      : `
-        INSERT INTO execucoes_treino
-          (treino_id, aluno_id, duracao_minutos, percepcao_esforco, observacao, cargas_json)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
+    const colunas = [
+      'aluno_id',
+      'treino_id',
+      'modelo_id',
+      'divisao_id',
+      'modelo_nome',
+      'divisao_nome',
+      'snapshot_treino_json',
+      'duracao_minutos',
+      'percepcao_esforco',
+      'observacao',
+      'cargas_json',
+    ];
 
-    const params = data_execucao
-      ? [
-          Number(treino_id),
-          Number(aluno_id),
-          String(data_execucao).trim(),
-          duracao_minutos !== '' && duracao_minutos !== null ? Number(duracao_minutos) : null,
-          percepcao_esforco !== '' && percepcao_esforco !== null ? Number(percepcao_esforco) : null,
-          observacao ? String(observacao).trim() : null,
-          cargasSerializadas,
-        ]
-      : [
-          Number(treino_id),
-          Number(aluno_id),
-          duracao_minutos !== '' && duracao_minutos !== null ? Number(duracao_minutos) : null,
-          percepcao_esforco !== '' && percepcao_esforco !== null ? Number(percepcao_esforco) : null,
-          observacao ? String(observacao).trim() : null,
-          cargasSerializadas,
-        ];
+    const placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'];
+
+    const params = [
+      Number(aluno_id),
+      treino_id !== '' && treino_id !== null ? Number(treino_id) : null,
+      modelo_id !== '' && modelo_id !== null ? Number(modelo_id) : null,
+      divisao_id !== '' && divisao_id !== null ? Number(divisao_id) : null,
+      modelo_nome ? String(modelo_nome).trim() : null,
+      divisao_nome ? String(divisao_nome).trim() : null,
+      snapshotSerializado,
+      duracao_minutos !== '' && duracao_minutos !== null ? Number(duracao_minutos) : null,
+      percepcao_esforco !== '' && percepcao_esforco !== null ? Number(percepcao_esforco) : null,
+      observacao ? String(observacao).trim() : null,
+      cargasSerializadas,
+    ];
+
+    if (data_execucao && String(data_execucao).trim()) {
+      colunas.push('data_execucao');
+      placeholders.push('?');
+      params.push(String(data_execucao).trim());
+    }
+
+    const sql = `
+      INSERT INTO execucoes_treino (${colunas.join(', ')})
+      VALUES (${placeholders.join(', ')})
+    `;
 
     db.run(sql, params, function (err) {
       if (err) return callback(err);

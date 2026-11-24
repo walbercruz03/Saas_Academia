@@ -2,12 +2,19 @@ const ExecucaoTreino = require('../models/ExecucaoTreino');
 
 const execucaoTreinoController = {
   listar(req, res) {
-    const { aluno_id = '', treino_id = '', data_inicio = '', data_fim = '' } = req.query;
+    const {
+      aluno_id = '',
+      treino_id = '',
+      modelo_id = '',
+      data_inicio = '',
+      data_fim = '',
+    } = req.query;
 
     ExecucaoTreino.listar(
       {
         alunoId: aluno_id,
         treinoId: treino_id,
+        modeloId: modelo_id,
         dataInicio: data_inicio,
         dataFim: data_fim,
       },
@@ -25,6 +32,11 @@ const execucaoTreinoController = {
     const {
       treino_id,
       aluno_id,
+      modelo_id,
+      divisao_id,
+      modelo_nome,
+      divisao_nome,
+      snapshot_treino,
       data_execucao,
       duracao_minutos,
       percepcao_esforco,
@@ -32,14 +44,23 @@ const execucaoTreinoController = {
       cargas = [],
     } = req.body || {};
 
-    if (!treino_id || !aluno_id) {
-      return res.status(400).json({ erro: 'Aluno e ficha de treino são obrigatórios.' });
+    if (!aluno_id) {
+      return res.status(400).json({ erro: 'O aluno é obrigatório.' });
+    }
+
+    if (!treino_id && !modelo_id && !divisao_id && !modelo_nome) {
+      return res.status(400).json({ erro: 'A ficha ou modelo de treino executado é obrigatório.' });
     }
 
     ExecucaoTreino.criar(
       {
         treino_id,
         aluno_id,
+        modelo_id,
+        divisao_id,
+        modelo_nome,
+        divisao_nome,
+        snapshot_treino,
         data_execucao,
         duracao_minutos,
         percepcao_esforco,

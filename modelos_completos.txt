@@ -1,0 +1,1150 @@
+]633;E;for arquivo in backend/src/models/Usuario.js backend/src/models/Aluno.js backend/src/models/ModeloTreino.js backend/src/models/Exercicio.js backend/src/models/NivelDificuldade.js backend/src/config/database.js;4a42a1ea-5875-45c4-89d4-f0f171add260]633;C
+==========================================
+ARQUIVO: backend/src/models/Usuario.js
+==========================================
+const db = require('../config/database');
+const bcrypt = require('bcryptjs');
+
+class Usuario {
+  static criarTabela(callback) {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        idade INTEGER,
+        cpf TEXT,
+        email_ou_matricula TEXT UNIQUE NOT NULL,
+        telefone TEXT,
+        senha_hash TEXT NOT NULL,
+        cargo TEXT NOT NULL CHECK(cargo IN ('admin', 'professor')),
+        status TEXT NOT NULL DEFAULT 'ativo' CHECK(status IN ('ativo', 'inativo')),
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    db.run(sql, callback);
+  }
+
+  static create({ nome, idade, cpf, email_ou_matricula, telefone, senha, cargo }, callback) {
+    const senhaHash = bcrypt.hashSync(senha, 10);
+    const sql = `INSERT INTO usuarios (nome, idade, cpf, email_ou_matricula, telefone, senha_hash, cargo) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [nome, idade, cpf, email_ou_matricula, telefone, senhaHash, cargo], function (err) {
+      callback(err, this);
+    });
+  }
+
+  static findByEmailOuMatricula(email_ou_matricula, callback) {
+    const sql = `SELECT * FROM usuarios WHERE email_ou_matricula = ?`;
+    db.get(sql, [email_ou_matricula], callback);
+  }
+
+  static findById(id, callback) {
+    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, criado_em FROM usuarios WHERE id = ?`;
+    db.get(sql, [id], callback);
+  }
+
+  static listar(callback) {
+    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, criado_em FROM usuarios ORDER BY criado_em DESC`;
+    db.all(sql, [], callback);
+  }
+
+  static atualizarStatus(id, status, callback) {
+    const sql = `UPDATE usuarios SET status = ? WHERE id = ?`;
+    db.run(sql, [status, id], callback);
+  }
+
+  static validarSenha(senha, senhaHash) {
+    return bcrypt.compareSync(senha, senhaHash);
+  }
+}
+
+module.exports = Usuario;
+
+==========================================
+ARQUIVO: backend/src/models/Aluno.js
+==========================================
+const db = require('../config/database');
+
+class Aluno {
+  static criarTabela(callback) {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS alunos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        cpf TEXT UNIQUE,
+        telefone TEXT,
+        email TEXT,
+        data_nascimento TEXT,
+        status TEXT NOT NULL DEFAULT 'ativo' CHECK(status IN ('ativo', 'inativo', 'inadimplente')),
+        foto TEXT,
+        contato_emergencia TEXT,
+        anamnese TEXT,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    db.run(sql, callback);
+  }
+
+  static create({ nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status = 'ativo' }, callback) {
+    const sql = `INSERT INTO alunos (nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status], function (err) {
+      callback(err, this);
+    });
+  }
+
+  static listar(callback) {
+    const sql = `SELECT * FROM alunos ORDER BY criado_em DESC`;
+    db.all(sql, [], callback);
+  }
+
+  static findById(id, callback) {
+    const sql = `SELECT * FROM alunos WHERE id = ?`;
+    db.get(sql, [id], callback);
+  }
+
+  static atualizar(id, { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status }, callback) {
+    const sql = `UPDATE alunos SET nome = ?, cpf = ?, telefone = ?, email = ?, data_nascimento = ?, foto = ?, contato_emergencia = ?, anamnese = ?, status = ? WHERE id = ?`;
+    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, id], callback);
+  }
+
+  static excluir(id, callback) {
+    const sql = `DELETE FROM alunos WHERE id = ?`;
+    db.run(sql, [id], callback);
+  }
+}
+
+module.exports = Aluno;
+
+==========================================
+ARQUIVO: backend/src/models/ModeloTreino.js
+==========================================
+const db = require('../config/database');
+
+const ModeloTreino = {
+  criarTabela: (callback) => {
+    // A criação e schema são gerenciados pelas migrações em migrations/
+    if (typeof callback === 'function') callback(null);
+  },
+
+  anexarDivisoesEExercicios: (modelos, callback) => {
+    if (!Array.isArray(modelos) || modelos.length === 0) {
+      return callback(null, []);
+    }
+
+    const ids = modelos.map((m) => m.id);
+    const placeholders = ids.map(() => '?').join(', ');
+
+    // 1. Busca todas as divisões dos modelos
+    const sqlDivisoes = `
+      SELECT
+        dt.id,
+        dt.modelo_id,
+        dt.nome,
+        dt.descricao,
+        dt.ordem
+      FROM divisoes_treino dt
+      WHERE dt.modelo_id IN (${placeholders})
+      ORDER BY dt.ordem ASC, dt.id ASC
+    `;
+
+    db.all(sqlDivisoes, ids, (divErr, rowsDivisoes) => {
+      if (divErr) return callback(divErr);
+
+      // 2. Busca todos os exercícios vinculados aos modelos
+      const sqlExercicios = `
+        SELECT
+          mte.id,
+          mte.modelo_id,
+          mte.divisao_id,
+          mte.exercicio_id,
+          mte.ordem,
+          mte.series,
+          mte.repeticoes,
+          mte.carga,
+          mte.descanso,
+          mte.observacao,
+          e.nome AS exercicio_nome,
+          e.equipamento AS exercicio_equipamento,
+          e.dificuldade AS exercicio_dificuldade,
+          e.imagem_url AS exercicio_imagem_url,
+          e.video_url AS exercicio_video_url
+        FROM modelo_treino_exercicios mte
+        INNER JOIN exercicios e ON e.id = mte.exercicio_id
+        WHERE mte.modelo_id IN (${placeholders})
+        ORDER BY mte.ordem ASC, mte.id ASC
+      `;
+
+      db.all(sqlExercicios, ids, (exErr, rowsExercicios) => {
+        if (exErr) return callback(exErr);
+
+        const mapaModelos = new Map();
+        modelos.forEach((m) => {
+          mapaModelos.set(m.id, {
+            ...m,
+            divisoes: [],
+            exercicios: [],
+          });
+        });
+
+        // Mapeia divisões por modelo e prepara mapa de divisões
+        const mapaDivisoes = new Map();
+        (rowsDivisoes || []).forEach((d) => {
+          const mod = mapaModelos.get(d.modelo_id);
+          const divisaoObj = {
+            id: d.id,
+            modelo_id: d.modelo_id,
+            nome: d.nome,
+            descricao: d.descricao || '',
+            ordem: Number(d.ordem || 1),
+            exercicios: [],
+          };
+          mapaDivisoes.set(d.id, divisaoObj);
+          if (mod) {
+            mod.divisoes.push(divisaoObj);
+          }
+        });
+
+        // Se algum modelo não tiver divisões cadastradas, cria uma virtual padrão
+        mapaModelos.forEach((mod) => {
+          if (mod.divisoes.length === 0) {
+            const divPadrao = {
+              id: null,
+              modelo_id: mod.id,
+              nome: mod.divisao || 'Treino A',
+              descricao: 'Divisão Geral',
+              ordem: 1,
+              exercicios: [],
+            };
+            mod.divisoes.push(divPadrao);
+          }
+        });
+
+        // Associa exercícios às suas divisões correspondentes
+        (rowsExercicios || []).forEach((item) => {
+          const mod = mapaModelos.get(item.modelo_id);
+          if (!mod) return;
+
+          const exercicioItem = {
+            id: item.id,
+            modelo_id: item.modelo_id,
+            divisao_id: item.divisao_id,
+            exercicio_id: item.exercicio_id,
+            nome: item.exercicio_nome,
+            equipamento: item.exercicio_equipamento,
+            dificuldade: item.exercicio_dificuldade,
+            imagem_url: item.exercicio_imagem_url,
+            video_url: item.exercicio_video_url,
+            ordem: Number(item.ordem || 1),
+            series: item.series || '3',
+            repeticoes: item.repeticoes || '12',
+            carga: item.carga || '',
+            descanso: item.descanso || '60s',
+            observacao: item.observacao || '',
+          };
+
+          // Adiciona na lista consolidada do modelo para compatibilidade
+          mod.exercicios.push(exercicioItem);
+
+          // Associa à divisão específica
+          let targetDiv = item.divisao_id ? mapaDivisoes.get(item.divisao_id) : null;
+          if (!targetDiv) {
+            targetDiv = mod.divisoes[0];
+          }
+          if (targetDiv) {
+            targetDiv.exercicios.push(exercicioItem);
+          }
+        });
+
+        callback(null, Array.from(mapaModelos.values()));
+      });
+    });
+  },
+
+  salvarDivisoesEItens: (modeloId, divisoes = [], callback) => {
+    let listaDivisoes = Array.isArray(divisoes) ? divisoes : [];
+
+    if (listaDivisoes.length === 0) {
+      listaDivisoes = [
+        {
+          nome: 'Treino A',
+          descricao: 'Divisão Principal',
+          ordem: 1,
+          exercicios: [],
+        },
+      ];
+    }
+
+    db.run(`DELETE FROM modelo_treino_exercicios WHERE modelo_id = ?`, [modeloId], (delExErr) => {
+      if (delExErr) return callback(delExErr);
+
+      db.run(`DELETE FROM divisoes_treino WHERE modelo_id = ?`, [modeloId], (delDivErr) => {
+        if (delDivErr) return callback(delDivErr);
+
+        let divisoesProcessadas = 0;
+        let falhou = false;
+
+        listaDivisoes.forEach((divisao, idxDiv) => {
+          if (falhou) return;
+
+          const nomeDivisao =
+            divisao.nome && String(divisao.nome).trim()
+              ? String(divisao.nome).trim()
+              : `Treino ${String.fromCharCode(65 + idxDiv)}`;
+          const ordemDivisao = Number(divisao.ordem || idxDiv + 1);
+          const descDivisao = divisao.descricao ? String(divisao.descricao).trim() : null;
+
+          db.run(
+            `INSERT INTO divisoes_treino (modelo_id, nome, descricao, ordem) VALUES (?, ?, ?, ?)`,
+            [modeloId, nomeDivisao, descDivisao, ordemDivisao],
+            function (insertDivErr) {
+              if (falhou) return;
+              if (insertDivErr) {
+                falhou = true;
+                return callback(insertDivErr);
+              }
+
+              const novaDivisaoId = this && this.lastID ? this.lastID : null;
+              const exerciciosDaDiv = Array.isArray(divisao.exercicios) ? divisao.exercicios : [];
+
+              if (exerciciosDaDiv.length === 0) {
+                divisoesProcessadas += 1;
+                if (divisoesProcessadas === listaDivisoes.length) {
+                  callback(null);
+                }
+                return;
+              }
+
+              let exProcessados = 0;
+              exerciciosDaDiv.forEach((itemEx, idxEx) => {
+                if (falhou) return;
+                const exId = Number(itemEx.exercicio_id);
+                if (!exId) {
+                  exProcessados += 1;
+                  if (exProcessados === exerciciosDaDiv.length) {
+                    divisoesProcessadas += 1;
+                    if (divisoesProcessadas === listaDivisoes.length) {
+                      callback(null);
+                    }
+                  }
+                  return;
+                }
+
+                db.run(
+                  `
+                  INSERT INTO modelo_treino_exercicios
+                    (modelo_id, divisao_id, exercicio_id, ordem, series, repeticoes, carga, descanso, observacao)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                  [
+                    modeloId,
+                    novaDivisaoId,
+                    exId,
+                    Number(itemEx.ordem || idxEx + 1),
+                    itemEx.series ? String(itemEx.series).trim() : '3',
+                    itemEx.repeticoes ? String(itemEx.repeticoes).trim() : '12',
+                    itemEx.carga ? String(itemEx.carga).trim() : null,
+                    itemEx.descanso ? String(itemEx.descanso).trim() : null,
+                    itemEx.observacao ? String(itemEx.observacao).trim() : null,
+                  ],
+                  (insertExErr) => {
+                    if (falhou) return;
+                    if (insertExErr) {
+                      falhou = true;
+                      return callback(insertExErr);
+                    }
+
+                    exProcessados += 1;
+                    if (exProcessados === exerciciosDaDiv.length) {
+                      divisoesProcessadas += 1;
+                      if (divisoesProcessadas === listaDivisoes.length) {
+                        callback(null);
+                      }
+                    }
+                  }
+                );
+              });
+            }
+          );
+        });
+      });
+    });
+  },
+
+  listar: (
+    { busca = '', modalidadeId = '', nivelId = '', nivel = '', apenasAtivos = false } = {},
+    callback
+  ) => {
+    const params = [];
+    const conditions = [];
+
+    let sql = `
+      SELECT
+        mt.*,
+        m.nome AS modalidade_nome,
+        nd.nome AS nivel_nome,
+        u.nome AS professor_nome,
+        COALESCE(COUNT(DISTINCT amt.aluno_id), 0) AS total_alunos_vinculados
+      FROM modelos_treino mt
+      LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+      LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
+      LEFT JOIN usuarios u ON u.id = mt.professor_id
+      LEFT JOIN aluno_modelos_treino amt ON amt.modelo_id = mt.id AND amt.ativo = 1
+    `;
+
+    if (busca && busca.trim() !== '') {
+      const termo = `%${busca.trim()}%`;
+      conditions.push(
+        `(LOWER(mt.nome) LIKE LOWER(?) OR LOWER(COALESCE(mt.descricao, '')) LIKE LOWER(?) OR LOWER(COALESCE(mt.objetivo, '')) LIKE LOWER(?))`
+      );
+      params.push(termo, termo, termo);
+    }
+
+    if (modalidadeId && String(modalidadeId).trim() !== '') {
+      conditions.push(`mt.modalidade_id = ?`);
+      params.push(Number(modalidadeId));
+    }
+
+    if (nivelId && String(nivelId).trim() !== '') {
+      conditions.push(`mt.nivel_id = ?`);
+      params.push(Number(nivelId));
+    } else if (nivel && String(nivel).trim() !== '') {
+      conditions.push(`(LOWER(mt.nivel) = LOWER(?) OR LOWER(COALESCE(nd.slug, '')) = LOWER(?))`);
+      params.push(nivel.trim(), nivel.trim());
+    }
+
+    if (apenasAtivos) {
+      conditions.push(`mt.ativo = 1`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    sql += ` GROUP BY mt.id, mt.nome, m.nome, nd.nome, u.nome ORDER BY mt.nome ASC, mt.id DESC`;
+
+    db.all(sql, params, (err, rows) => {
+      if (err) return callback(err);
+      ModeloTreino.anexarDivisoesEExercicios(rows || [], callback);
+    });
+  },
+
+  buscarPorId: (id, callback) => {
+    const sql = `
+      SELECT
+        mt.*,
+        m.nome AS modalidade_nome,
+        nd.nome AS nivel_nome,
+        u.nome AS professor_nome,
+        COALESCE(COUNT(DISTINCT amt.aluno_id), 0) AS total_alunos_vinculados
+      FROM modelos_treino mt
+      LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+      LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
+      LEFT JOIN usuarios u ON u.id = mt.professor_id
+      LEFT JOIN aluno_modelos_treino amt ON amt.modelo_id = mt.id AND amt.ativo = 1
+      WHERE mt.id = ?
+      GROUP BY mt.id, mt.nome, m.nome, nd.nome, u.nome
+    `;
+
+    db.get(sql, [id], (err, row) => {
+      if (err) return callback(err);
+      if (!row) return callback(null, null);
+
+      ModeloTreino.anexarDivisoesEExercicios([row], (itemErr, lista) => {
+        if (itemErr) return callback(itemErr);
+        callback(null, lista[0] || null);
+      });
+    });
+  },
+
+  criar: (dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      divisao = 'Treino A',
+      modalidade_id = null,
+      nivel_id = null,
+      nivel = 'intermediario',
+      objetivo = null,
+      professor_id = null,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = dados;
+
+    const sql = `
+      INSERT INTO modelos_treino
+        (nome, descricao, divisao, modalidade_id, nivel_id, nivel, objetivo, professor_id, ativo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      divisao && divisao.trim() ? divisao.trim() : 'Treino A',
+      modalidade_id ? Number(modalidade_id) : null,
+      nivel_id ? Number(nivel_id) : null,
+      nivel || 'intermediario',
+      objetivo ? objetivo.trim() : null,
+      professor_id ? Number(professor_id) : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+    ];
+
+    db.run(sql, params, function (err) {
+      if (err) return callback(err);
+      const novoId = this && this.lastID ? this.lastID : null;
+      if (!novoId) return callback(new Error('Não foi possível obter o ID do modelo criado.'));
+
+      const divisoesParaSalvar =
+        Array.isArray(divisoes) && divisoes.length > 0
+          ? divisoes
+          : [
+              {
+                nome: divisao || 'Treino A',
+                descricao: 'Divisão Principal',
+                ordem: 1,
+                exercicios: Array.isArray(exercicios) ? exercicios : [],
+              },
+            ];
+
+      ModeloTreino.salvarDivisoesEItens(novoId, divisoesParaSalvar, (saveErr) => {
+        if (saveErr) return callback(saveErr);
+        ModeloTreino.buscarPorId(novoId, callback);
+      });
+    });
+  },
+
+  atualizar: (id, dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      divisao = 'Treino A',
+      modalidade_id = null,
+      nivel_id = null,
+      nivel = 'intermediario',
+      objetivo = null,
+      professor_id = null,
+      ativo = 1,
+      divisoes = [],
+      exercicios = [],
+    } = dados;
+
+    const sql = `
+      UPDATE modelos_treino
+      SET nome = ?, descricao = ?, divisao = ?, modalidade_id = ?, nivel_id = ?, nivel = ?, objetivo = ?, professor_id = COALESCE(?, professor_id), ativo = ?
+      WHERE id = ?
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      divisao && divisao.trim() ? divisao.trim() : 'Treino A',
+      modalidade_id ? Number(modalidade_id) : null,
+      nivel_id ? Number(nivel_id) : null,
+      nivel || 'intermediario',
+      objetivo ? objetivo.trim() : null,
+      professor_id ? Number(professor_id) : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+      id,
+    ];
+
+    db.run(sql, params, (err) => {
+      if (err) return callback(err);
+
+      const divisoesParaSalvar =
+        Array.isArray(divisoes) && divisoes.length > 0
+          ? divisoes
+          : [
+              {
+                nome: divisao || 'Treino A',
+                descricao: 'Divisão Principal',
+                ordem: 1,
+                exercicios: Array.isArray(exercicios) ? exercicios : [],
+              },
+            ];
+
+      ModeloTreino.salvarDivisoesEItens(id, divisoesParaSalvar, (saveErr) => {
+        if (saveErr) return callback(saveErr);
+        ModeloTreino.buscarPorId(id, callback);
+      });
+    });
+  },
+
+  duplicar: (id, novoNome = null, callback) => {
+    ModeloTreino.buscarPorId(id, (err, original) => {
+      if (err) return callback(err);
+      if (!original) return callback(null, null);
+
+      const nomeCopia =
+        novoNome && String(novoNome).trim()
+          ? String(novoNome).trim()
+          : `${original.nome} (Cópia)`;
+
+      ModeloTreino.criar(
+        {
+          nome: nomeCopia,
+          descricao: original.descricao,
+          divisao: original.divisao,
+          modalidade_id: original.modalidade_id,
+          nivel_id: original.nivel_id,
+          nivel: original.nivel,
+          objetivo: original.objetivo,
+          professor_id: original.professor_id,
+          ativo: original.ativo,
+          divisoes: original.divisoes || [],
+        },
+        callback
+      );
+    });
+  },
+
+  deletar: (id, callback) => {
+    db.get(
+      `SELECT COUNT(*) as total FROM aluno_modelos_treino WHERE modelo_id = ? AND ativo = 1`,
+      [id],
+      (checkErr, row) => {
+        if (checkErr) return callback(checkErr);
+        const totalAlunos = Number(row?.total || 0);
+
+        if (totalAlunos > 0) {
+          const erroVinculo = new Error(
+            `Não é possível excluir este modelo porque ele está ativamente atribuído a ${totalAlunos} aluno(s). Remova a atribuição dos alunos antes de excluir o modelo.`
+          );
+          erroVinculo.status = 400;
+          return callback(erroVinculo);
+        }
+
+        db.run(`DELETE FROM modelos_treino WHERE id = ?`, [id], function (delErr) {
+          if (delErr) return callback(delErr);
+          callback(null, {
+            deleted: true,
+            changes: this && typeof this.changes === 'number' ? this.changes : 0,
+          });
+        });
+      }
+    );
+  },
+};
+
+module.exports = ModeloTreino;
+==========================================
+ARQUIVO: backend/src/models/Exercicio.js
+==========================================
+const db = require('../config/database');
+
+const Exercicio = {
+  criarTabela: (callback) => {
+    const query = `
+      CREATE TABLE IF NOT EXISTS exercicios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        descricao TEXT,
+        equipamento TEXT,
+        dificuldade TEXT NOT NULL DEFAULT 'intermediario',
+        imagem_url TEXT,
+        video_url TEXT,
+        ativo INTEGER NOT NULL DEFAULT 1,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    db.run(query, (err) => {
+      if (err) return callback(err);
+
+      const joinQuery = `
+        CREATE TABLE IF NOT EXISTS exercicio_grupos_musculares (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          exercicio_id INTEGER NOT NULL,
+          grupo_muscular_id INTEGER NOT NULL,
+          papel TEXT NOT NULL DEFAULT 'principal',
+          FOREIGN KEY (exercicio_id) REFERENCES exercicios (id) ON DELETE CASCADE,
+          FOREIGN KEY (grupo_muscular_id) REFERENCES grupos_musculares (id) ON DELETE CASCADE,
+          UNIQUE (exercicio_id, grupo_muscular_id, papel)
+        )
+      `;
+      db.run(joinQuery, callback);
+    });
+  },
+
+  sincronizarGrupos: (exercicioId, gruposPrincipais = [], gruposSecundarios = [], callback) => {
+    const principaisIds = [...new Set((gruposPrincipais || []).map(Number).filter(Boolean))];
+    const secundariosIds = [...new Set((gruposSecundarios || []).map(Number).filter(Boolean))];
+
+    db.run(`DELETE FROM exercicio_grupos_musculares WHERE exercicio_id = ?`, [exercicioId], (err) => {
+      if (err) return callback(err);
+
+      const itens = [
+        ...principaisIds.map((grupoId) => ({ grupoId, papel: 'principal' })),
+        ...secundariosIds.map((grupoId) => ({ grupoId, papel: 'secundario' })),
+      ];
+
+      if (itens.length === 0) return callback(null);
+
+      let concluídos = 0;
+      let falhou = false;
+
+      itens.forEach((item) => {
+        if (falhou) return;
+        db.run(
+          `INSERT INTO exercicio_grupos_musculares (exercicio_id, grupo_muscular_id, papel) VALUES (?, ?, ?)`,
+          [exercicioId, item.grupoId, item.papel],
+          (insertErr) => {
+            if (falhou) return;
+            if (insertErr) {
+              falhou = true;
+              return callback(insertErr);
+            }
+            concluídos += 1;
+            if (concluídos === itens.length) {
+              callback(null);
+            }
+          }
+        );
+      });
+    });
+  },
+
+  anexarGrupos: (exercicios, callback) => {
+    if (!Array.isArray(exercicios) || exercicios.length === 0) {
+      return callback(null, []);
+    }
+
+    const ids = exercicios.map((e) => e.id);
+    const placeholders = ids.map(() => '?').join(', ');
+
+    const sql = `
+      SELECT
+        egm.exercicio_id,
+        egm.papel,
+        gm.id AS grupo_id,
+        gm.nome AS grupo_nome
+      FROM exercicio_grupos_musculares egm
+      INNER JOIN grupos_musculares gm ON gm.id = egm.grupo_muscular_id
+      WHERE egm.exercicio_id IN (${placeholders})
+      ORDER BY gm.nome ASC
+    `;
+
+    db.all(sql, ids, (err, vinculos) => {
+      if (err) return callback(err);
+
+      const mapa = new Map();
+      exercicios.forEach((ex) => {
+        mapa.set(ex.id, {
+          ...ex,
+          grupos_principais: [],
+          grupos_secundarios: [],
+        });
+      });
+
+      (vinculos || []).forEach((v) => {
+        const alvo = mapa.get(v.exercicio_id);
+        if (!alvo) return;
+        const grupoObj = { id: v.grupo_id, nome: v.grupo_nome, papel: v.papel };
+        if (v.papel === 'secundario') {
+          alvo.grupos_secundarios.push(grupoObj);
+        } else {
+          alvo.grupos_principais.push(grupoObj);
+        }
+      });
+
+      callback(null, Array.from(mapa.values()));
+    });
+  },
+
+  listar: ({ busca = '', equipamento = '', dificuldade = '', grupoMuscularId = '', apenasAtivos = false } = {}, callback) => {
+    const params = [];
+    const conditions = [];
+    let sql = `SELECT DISTINCT e.* FROM exercicios e`;
+
+    if (grupoMuscularId && String(grupoMuscularId).trim() !== '') {
+      sql += ` INNER JOIN exercicio_grupos_musculares egm_filtro ON egm_filtro.exercicio_id = e.id`;
+      conditions.push(`egm_filtro.grupo_muscular_id = ?`);
+      params.push(Number(grupoMuscularId));
+    }
+
+    if (busca && busca.trim() !== '') {
+      const termo = `%${busca.trim()}%`;
+      conditions.push(`(LOWER(e.nome) LIKE LOWER(?) OR LOWER(COALESCE(e.descricao, '')) LIKE LOWER(?) OR LOWER(COALESCE(e.equipamento, '')) LIKE LOWER(?))`);
+      params.push(termo, termo, termo);
+    }
+
+    if (equipamento && equipamento.trim() !== '') {
+      conditions.push(`LOWER(COALESCE(e.equipamento, '')) LIKE LOWER(?)`);
+      params.push(`%${equipamento.trim()}%`);
+    }
+
+    if (dificuldade && dificuldade.trim() !== '') {
+      conditions.push(`LOWER(e.dificuldade) = LOWER(?)`);
+      params.push(dificuldade.trim());
+    }
+
+    if (apenasAtivos) {
+      conditions.push(`e.ativo = 1`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    sql += ` ORDER BY e.nome ASC, e.id DESC`;
+
+    db.all(sql, params, (err, rows) => {
+      if (err) return callback(err);
+      Exercicio.anexarGrupos(rows || [], callback);
+    });
+  },
+
+  buscarPorId: (id, callback) => {
+    db.get(`SELECT * FROM exercicios WHERE id = ?`, [id], (err, row) => {
+      if (err) return callback(err);
+      if (!row) return callback(null, null);
+      Exercicio.anexarGrupos([row], (grupoErr, lista) => {
+        if (grupoErr) return callback(grupoErr);
+        callback(null, lista[0] || null);
+      });
+    });
+  },
+
+  criar: (dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      instrucoes = null,
+      equipamento = null,
+      dificuldade = 'intermediario',
+      imagem_url = null,
+      video_url = null,
+      ativo = 1,
+      grupos_principais = [],
+      grupos_secundarios = [],
+    } = dados;
+
+    const sql = `
+      INSERT INTO exercicios (nome, descricao, instrucoes, equipamento, dificuldade, imagem_url, video_url, ativo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      instrucoes ? instrucoes.trim() : null,
+      equipamento ? equipamento.trim() : null,
+      dificuldade || 'intermediario',
+      imagem_url ? imagem_url.trim() : null,
+      video_url ? video_url.trim() : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+    ];
+
+    db.run(sql, params, function (err) {
+      if (err) return callback(err);
+      const novoId = this && this.lastID ? this.lastID : null;
+      if (!novoId) return callback(new Error('Não foi possível obter o ID do exercício criado.'));
+
+      Exercicio.sincronizarGrupos(novoId, grupos_principais, grupos_secundarios, (syncErr) => {
+        if (syncErr) return callback(syncErr);
+        Exercicio.buscarPorId(novoId, callback);
+      });
+    });
+  },
+
+  atualizar: (id, dados, callback) => {
+    const {
+      nome,
+      descricao = null,
+      instrucoes = null,
+      equipamento = null,
+      dificuldade = 'intermediario',
+      imagem_url = null,
+      video_url = null,
+      ativo = 1,
+      grupos_principais = [],
+      grupos_secundarios = [],
+    } = dados;
+
+    const sql = `
+      UPDATE exercicios
+      SET nome = ?, descricao = ?, instrucoes = ?, equipamento = ?, dificuldade = ?, imagem_url = ?, video_url = ?, ativo = ?
+      WHERE id = ?
+    `;
+
+    const params = [
+      nome.trim(),
+      descricao ? descricao.trim() : null,
+      instrucoes ? instrucoes.trim() : null,
+      equipamento ? equipamento.trim() : null,
+      dificuldade || 'intermediario',
+      imagem_url ? imagem_url.trim() : null,
+      video_url ? video_url.trim() : null,
+      ativo === false || ativo === 0 ? 0 : 1,
+      id,
+    ];
+
+    db.run(sql, params, (err) => {
+      if (err) return callback(err);
+      Exercicio.sincronizarGrupos(id, grupos_principais, grupos_secundarios, (syncErr) => {
+        if (syncErr) return callback(syncErr);
+        Exercicio.buscarPorId(id, callback);
+      });
+    });
+  },
+
+  deletar: (id, callback) => {
+    db.run(`DELETE FROM exercicios WHERE id = ?`, [id], function (err) {
+      if (err) return callback(err);
+      callback(null, {
+        deleted: true,
+        changes: this && typeof this.changes === 'number' ? this.changes : 0,
+      });
+    });
+  },
+};
+
+module.exports = Exercicio;
+==========================================
+ARQUIVO: backend/src/models/NivelDificuldade.js
+==========================================
+const db = require('../config/database');
+
+const NivelDificuldade = {
+  listar: ({ apenasAtivos = false } = {}, callback) => {
+    let sql = `
+      SELECT
+        n.*,
+        COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
+      FROM niveis_dificuldade n
+      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id
+    `;
+
+    const conditions = [];
+    if (apenasAtivos) {
+      conditions.push(`n.ativo = 1`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    sql += ` GROUP BY n.id ORDER BY n.ordem ASC, n.id ASC`;
+
+    db.all(sql, [], callback);
+  },
+
+  buscarPorId: (id, callback) => {
+    const sql = `
+      SELECT
+        n.*,
+        COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
+      FROM niveis_dificuldade n
+      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id
+      WHERE n.id = ?
+      GROUP BY n.id
+    `;
+    db.get(sql, [id], callback);
+  },
+
+  gerarSlug: (texto) => {
+    return String(texto || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  },
+
+  criar: ({ nome, slug = null, ordem = 1, ativo = 1 }, callback) => {
+    const slugFinal = slug && slug.trim() ? NivelDificuldade.gerarSlug(slug) : NivelDificuldade.gerarSlug(nome);
+    const sql = `INSERT INTO niveis_dificuldade (nome, slug, ordem, ativo) VALUES (?, ?, ?, ?)`;
+    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0], function (err) {
+      if (err) return callback(err);
+      NivelDificuldade.buscarPorId(this && this.lastID ? this.lastID : null, callback);
+    });
+  },
+
+  atualizar: (id, { nome, slug = null, ordem = 1, ativo = 1 }, callback) => {
+    const slugFinal = slug && slug.trim() ? NivelDificuldade.gerarSlug(slug) : NivelDificuldade.gerarSlug(nome);
+    const sql = `UPDATE niveis_dificuldade SET nome = ?, slug = ?, ordem = ?, ativo = ? WHERE id = ?`;
+    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0, id], function (err) {
+      if (err) return callback(err);
+      NivelDificuldade.buscarPorId(id, callback);
+    });
+  },
+
+  deletar: (id, callback) => {
+    db.get(
+      `SELECT COUNT(*) as total FROM modelos_treino WHERE nivel_id = ?`,
+      [id],
+      (err, row) => {
+        if (err) return callback(err);
+        const total = Number(row?.total || 0);
+        if (total > 0) {
+          const erroVinculo = new Error(
+            `Não é possível excluir este nível de dificuldade pois existem ${total} modelo(s) de treino vinculado(s). Desative-o ou altere os modelos primeiro.`
+          );
+          erroVinculo.status = 400;
+          return callback(erroVinculo);
+        }
+
+        db.run(`DELETE FROM niveis_dificuldade WHERE id = ?`, [id], function (delErr) {
+          if (delErr) return callback(delErr);
+          callback(null, { deleted: true, changes: this?.changes || 0 });
+        });
+      }
+    );
+  },
+};
+
+module.exports = NivelDificuldade;
+
+==========================================
+ARQUIVO: backend/src/config/database.js
+==========================================
+const { Pool } = require("pg");
+const path = require("path");
+
+const isExplicitSqlite = process.env.DB_CLIENT === "sqlite" || process.env.USE_SQLITE === "true";
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+
+let useSqlite = isExplicitSqlite || !hasDatabaseUrl;
+let sqliteDb = null;
+
+function getSqliteDb() {
+  if (!sqliteDb) {
+    const sqlite3 = require("sqlite3").verbose();
+    const dbPath = path.resolve(__dirname, "..", "database.sqlite");
+    sqliteDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) console.error("Erro ao conectar ao SQLite:", err.message);
+      else console.log("Conectado ao banco de dados SQLite.");
+    });
+  }
+  return sqliteDb;
+}
+
+let pool = null;
+if (!useSqlite) {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 3000,
+  });
+
+  pool.query("SELECT 1")
+    .then(() => {
+      console.log("Conectado ao banco de dados PostgreSQL.");
+    })
+    .catch((err) => {
+      console.warn("PostgreSQL indisponível (" + err.message + "). Ativando fallback para SQLite local.");
+      useSqlite = true;
+      getSqliteDb();
+    });
+} else {
+  getSqliteDb();
+}
+
+function traduzirSql(sql) {
+  let s = String(sql)
+    .replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, "SERIAL PRIMARY KEY")
+    .replace(/\bDATETIME\b/gi, "TIMESTAMP")
+    .replace(/\bBLOB\b/gi, "BYTEA")
+    .replace(/datetime\(\s*'now'\s*(?:,\s*[^')]+'[^')]*')*\s*\)/gi, "CURRENT_TIMESTAMP")
+    .replace(/date\(\s*'now'\s*(?:,\s*[^')]+'[^')]*')*\s*\)/gi, "CURRENT_DATE")
+    .replace(/datetime\(\s*([^(),]+?)\s*\)/gi, "($1)::timestamp")
+    .replace(/date\(\s*([^(),]+?)\s*\)/gi, "($1)::date");
+
+  // Compatibilidade básica com consultas a sqlite_master
+  if (/sqlite_master/i.test(s)) {
+    s = s
+      .replace(/\bsqlite_master\b/gi, "information_schema.tables")
+      .replace(/\bname\b/gi, "table_name")
+      .replace(/type\s*=\s*'table'\s+AND\s+/gi, "table_schema = 'public' AND table_type = 'BASE TABLE' AND ")
+      .replace(/WHERE\s+type\s*=\s*'table'/gi, "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'");
+  }
+
+  let idx = 0, sq = false, dq = false, out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "'" && !dq) { sq = !sq; out += c; }
+    else if (c === "\"" && !sq) { dq = !dq; out += c; }
+    else if (c === "?" && !sq && !dq) { out += "$" + (++idx); }
+    else { out += c; }
+  }
+  return out.trim();
+}
+
+function args(params, cb) {
+  if (typeof params === "function") return { v: [], cb: params };
+  return { v: Array.isArray(params) ? params : params !== undefined ? [params] : [], cb: typeof cb === "function" ? cb : null };
+}
+
+let fila = Promise.resolve();
+const runQueue = (fn) => { const p = fila.then(fn, fn); fila = p.catch(() => {}); return p; };
+
+const db = {
+  pool,
+  get isSqlite() { return useSqlite; },
+  serialize(fn) {
+    if (useSqlite) {
+      getSqliteDb().serialize(fn);
+    } else {
+      if (typeof fn === "function") fn();
+    }
+  },
+  run(sql, params, callback) {
+    const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().run(sql, v, function (err) {
+        if (cb) cb.call(this, err);
+      });
+      return this;
+    }
+
+    let q = traduzirSql(sql);
+    const isIns = /^\s*INSERT\s+INTO\b/i.test(q);
+    const hasRet = /\bRETURNING\b/i.test(q);
+    if (isIns && !hasRet) q = q.replace(/;?\s*$/, " RETURNING id");
+    runQueue(async () => {
+      try {
+        const r = await pool.query(q, v);
+        const ctx = { lastID: r.rows?.[0]?.id ?? null, changes: r.rowCount ?? 0 };
+        if (cb) cb.call(ctx, null);
+      } catch (err) {
+        if (isIns && !hasRet && /column "id" does not exist/i.test(err.message)) {
+          try {
+            const r2 = await pool.query(traduzirSql(sql), v);
+            const ctx2 = { lastID: null, changes: r2.rowCount ?? 0 };
+            if (cb) cb.call(ctx2, null);
+            return;
+          } catch (e2) {
+            if (cb) cb.call({ lastID: null, changes: 0 }, e2);
+            else console.error("Erro SQL (run):", e2.message);
+            return;
+          }
+        }
+        if (cb) cb.call({ lastID: null, changes: 0 }, err);
+        else console.error("Erro SQL (run):", err.message);
+      }
+    });
+    return this;
+  },
+  get(sql, params, callback) {
+    const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().get(sql, v, cb);
+      return this;
+    }
+    runQueue(async () => {
+      try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows[0]); }
+      catch (err) { if (cb) cb(err, undefined); else console.error("Erro SQL (get):", err.message); }
+    });
+    return this;
+  },
+  all(sql, params, callback) {
+    const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().all(sql, v, cb);
+      return this;
+    }
+    runQueue(async () => {
+      try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows || []); }
+      catch (err) { if (cb) cb(err, []); else console.error("Erro SQL (all):", err.message); }
+    });
+    return this;
+  },
+};
+
+module.exports = db;

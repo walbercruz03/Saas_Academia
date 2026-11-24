@@ -1,255 +1,183 @@
 /* ==========================================================
-   PÁGINA TREINOS - Wc Fit (Compacta e Responsiva)
+   PÁGINA TREINOS - WC FIT (Padronizada e Fluida)
    ========================================================== */
 
-.page-container {
-  width: 100%;
-  max-width: 100% !important;
-  min-height: auto !important;
-  margin: 0 !important;
-  padding: 1rem 1.5rem 2.5rem;
-  box-sizing: border-box;
-  display: block !important;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 0 !important;
-  margin-bottom: 1.25rem !important;
-  padding: 0 !important;
-  min-height: unset !important;
-  height: auto !important;
-}
-
-.page-header h2 {
-  margin: 0 0 0.25rem 0;
-}
-
-.page-header p {
-  margin: 0;
-}
-
-.form-card {
-  background: var(--bg-card, #ffffff);
-  padding: 1.5rem;
-  border-radius: var(--radius, 12px);
-  box-shadow: var(--shadow, 0 4px 6px rgba(0, 0, 0, 0.05));
-  margin-top: 0 !important;
-  margin-bottom: 1.5rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.form-grid {
+.treinamento-page .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
   width: 100%;
 }
 
-.campo {
+.treinamento-page .campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   width: 100%;
   min-width: 0;
 }
 
-.campo input,
-.campo select {
-  width: 100%;
-  padding: 0.7rem 0.85rem;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  box-sizing: border-box;
-  font-size: 0.95rem;
-  background: #ffffff;
+.treinamento-page .campo.campo-full {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 /* Área dinâmica de adição de exercícios */
-.exercicios-container {
+.treinamento-page .exercicios-container {
   grid-column: 1 / -1;
-  background: #f8fafc;
+  background: var(--bg-subtle, #f8fafc);
   padding: 1.25rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  border: 1px solid var(--border, #e2e8f0);
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
 }
 
-.exercicio-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 3fr) repeat(3, minmax(85px, 1fr)) auto;
-  gap: 0.75rem;
-  align-items: center;
-  margin-bottom: 0.75rem;
+.treinamento-page .exercicios-container h4 {
+  margin: 0 0 0.85rem 0;
+  color: var(--text-heading, #0f172a);
 }
 
-.exercicio-row input {
-  width: 100%;
-  min-width: 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-/* Rodapé do formulário */
-.campo-full {
+/* Rodapé de envio do formulário */
+.treinamento-page .form-grid > .campo-full:last-child {
   grid-column: 1 / -1;
   display: flex;
+  flex-direction: row;
   justify-content: flex-end;
   margin-top: 0.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border, #e2e8f0);
 }
 
 /* Grid da listagem de treinos cadastrados */
 .treinos-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
   width: 100%;
   box-sizing: border-box;
+  margin-top: 1rem;
   margin-bottom: 2rem;
 }
 
-/* Card de treino cadastrado compacto */
-.treino-card {
-  margin-bottom: 0 !important;
-  min-height: 0 !important;
-  height: auto !important;
-  padding: 1rem 1.15rem !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  gap: 0.6rem;
+/* Card de treino cadastrado padronizado */
+.treinamento-page .treino-card {
+  margin-bottom: 0;
+  padding: 1.35rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+  height: 100%;
+}
+
+.treinamento-page .treino-card h4 {
+  margin: 0 0 0.35rem 0;
+  color: var(--text-heading, #0f172a);
+}
+
+.treinamento-page .treino-card p {
+  margin: 0 0 0.65rem 0;
+  font-size: 0.9rem;
 }
 
 .treino-exercicios-lista {
-  background: #f8fafc;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
-  max-height: 110px;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  max-height: 160px;
   overflow-y: auto;
 }
 
-/* Rodapé de ações próximo à lista de exercícios */
+/* Rodapé de ações do card */
 .treino-acoes {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.15rem !important;
-  padding-top: 0.6rem;
-  border-top: 1px solid #e2e8f0;
-  height: auto !important;
-  flex: 0 0 auto !important;
+  gap: 0.55rem;
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border, #e2e8f0);
 }
 
 .treino-acoes a,
 .treino-acoes button {
-  flex: 0 0 auto !important;
-  height: auto !important;
-  min-height: 36px;
-  max-height: 42px;
-  line-height: 1.2 !important;
-  width: auto !important;
+  flex: 0 0 auto;
+  min-height: 34px;
+  line-height: 1.2;
+  width: auto;
 }
 
-/* Botão específico do WhatsApp */
 .btn-whatsapp {
-  background-color: #22c55e !important;
-  color: #ffffff !important;
+  background-color: #22c55e;
+  color: #ffffff;
   border: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  padding: 0.5rem 0.95rem;
-  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
 }
 
 .btn-whatsapp:hover {
-  background-color: #16a34a !important;
+  background-color: #16a34a;
 }
 
 .btn-excluir-treino {
-  background: #fee2e2 !important;
-  color: #991b1b !important;
+  background: #fee2e2;
+  color: #991b1b;
   border: none;
-  padding: 0.5rem 0.95rem !important;
-  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 0.82rem;
   font-weight: 600;
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .btn-excluir-treino:hover {
-  background: #fecaca !important;
+  background: #fecaca;
 }
 
-/* Telas intermediárias / zoom / sidebar estreita */
-@media (max-width: 1024px) {
-  .exercicio-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* Responsividade Mobile e telas menores */
-@media (max-width: 900px) {
-  .treinos-grid {
-    grid-template-columns: 1fr;
-  }
+[data-theme="dark"] .treinamento-page .exercicios-container,
+[data-theme="dark"] .treino-exercicios-lista {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: #334155;
 }
 
 @media (max-width: 768px) {
-  .page-container {
-    padding: 1rem;
-  }
-
-  .form-card {
-    padding: 1.15rem;
-  }
-
-  .form-grid {
+  .treinamento-page .form-grid,
+  .treinos-grid {
     grid-template-columns: 1fr;
   }
 
-  .exercicio-row {
-    grid-template-columns: 1fr;
-    background: #ffffff;
-    padding: 0.85rem;
-    border-radius: 6px;
-    border: 1px solid #cbd5e1;
-    gap: 0.5rem;
-  }
-
-  .campo-full {
+  .treinamento-page .form-grid > .campo-full:last-child {
     justify-content: stretch;
   }
 
-  .campo-full button {
+  .treinamento-page .form-grid > .campo-full:last-child button {
     width: 100%;
   }
 
   .treino-acoes {
-    justify-content: stretch !important;
+    justify-content: stretch;
   }
 
   .treino-acoes a,
   .treino-acoes button {
-    flex: 1 1 auto !important;
-    width: auto !important;
+    flex: 1 1 auto;
   }
 }

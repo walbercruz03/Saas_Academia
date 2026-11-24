@@ -14,16 +14,18 @@ class Usuario {
         senha_hash TEXT NOT NULL,
         cargo TEXT NOT NULL CHECK(cargo IN ('admin', 'professor')),
         status TEXT NOT NULL DEFAULT 'ativo' CHECK(status IN ('ativo', 'inativo')),
-        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        academia_id INTEGER,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (academia_id) REFERENCES academias(id)
       )
     `;
     db.run(sql, callback);
   }
 
-  static create({ nome, idade, cpf, email_ou_matricula, telefone, senha, cargo }, callback) {
+  static create({ nome, idade, cpf, email_ou_matricula, telefone, senha, cargo, academia_id }, callback) {
     const senhaHash = bcrypt.hashSync(senha, 10);
-    const sql = `INSERT INTO usuarios (nome, idade, cpf, email_ou_matricula, telefone, senha_hash, cargo) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    db.run(sql, [nome, idade, cpf, email_ou_matricula, telefone, senhaHash, cargo], function (err) {
+    const sql = `INSERT INTO usuarios (nome, idade, cpf, email_ou_matricula, telefone, senha_hash, cargo, academia_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [nome, idade, cpf, email_ou_matricula, telefone, senhaHash, cargo, academia_id], function (err) {
       callback(err, this);
     });
   }
@@ -34,12 +36,12 @@ class Usuario {
   }
 
   static findById(id, callback) {
-    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, criado_em FROM usuarios WHERE id = ?`;
+    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, academia_id, criado_em FROM usuarios WHERE id = ?`;
     db.get(sql, [id], callback);
   }
 
   static listar(callback) {
-    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, criado_em FROM usuarios ORDER BY criado_em DESC`;
+    const sql = `SELECT id, nome, idade, cpf, email_ou_matricula, telefone, cargo, status, academia_id, criado_em FROM usuarios ORDER BY criado_em DESC`;
     db.all(sql, [], callback);
   }
 

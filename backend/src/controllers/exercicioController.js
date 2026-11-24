@@ -4,7 +4,7 @@ const DIFICULDADES_VALIDAS = ['iniciante', 'intermediario', 'avancado'];
 
 const exercicioController = {
   listar(req, res) {
-    const { busca = '', equipamento = '', dificuldade = '', grupo_muscular_id = '', apenas_ativos = '' } = req.query;
+    const { busca = '', equipamento = '', dificuldade = '', grupo_muscular_id = '', apenas_ativos = '', academia_id } = req.query;
 
     Exercicio.listar(
       {
@@ -13,6 +13,7 @@ const exercicioController = {
         dificuldade,
         grupoMuscularId: grupo_muscular_id,
         apenasAtivos: apenas_ativos === '1' || apenas_ativos === 'true',
+        academia_id,
       },
       (err, rows) => {
         if (err) {
@@ -42,6 +43,7 @@ const exercicioController = {
     const {
       nome,
       descricao,
+      instrucoes,
       equipamento,
       dificuldade = 'intermediario',
       imagem_url,
@@ -55,21 +57,19 @@ const exercicioController = {
       return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
     }
 
-    if (dificuldade && !DIFICULDADES_VALIDAS.includes(String(dificuldade).toLowerCase())) {
-      return res.status(400).json({ erro: 'Dificuldade inválida. Use: iniciante, intermediario ou avancado.' });
-    }
-
     Exercicio.criar(
       {
         nome,
         descricao,
+        instrucoes,
         equipamento,
-        dificuldade: String(dificuldade || 'intermediario').toLowerCase(),
+        dificuldade: String(dificuldade || 'intermediario').toLowerCase().trim(),
         imagem_url,
         video_url,
         ativo,
         grupos_principais,
         grupos_secundarios,
+        academia_id: req.usuario.academia_id,
       },
       (err, criado) => {
         if (err) {
@@ -86,6 +86,7 @@ const exercicioController = {
     const {
       nome,
       descricao,
+      instrucoes,
       equipamento,
       dificuldade = 'intermediario',
       imagem_url,
@@ -99,10 +100,6 @@ const exercicioController = {
       return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
     }
 
-    if (dificuldade && !DIFICULDADES_VALIDAS.includes(String(dificuldade).toLowerCase())) {
-      return res.status(400).json({ erro: 'Dificuldade inválida. Use: iniciante, intermediario ou avancado.' });
-    }
-
     Exercicio.buscarPorId(id, (buscaErr, existente) => {
       if (buscaErr) {
         console.error('Erro ao verificar exercício:', buscaErr.message);
@@ -112,13 +109,19 @@ const exercicioController = {
         return res.status(404).json({ erro: 'Exercício não encontrado.' });
       }
 
+      // Verify academia ownership
+      if (existente.academia_id !== req.usuario.academia_id) {
+        return res.status(403).json({ erro: 'Não é permitido alterar exercícios de outra academia.' });
+      }
+
       Exercicio.atualizar(
         id,
         {
           nome,
           descricao,
+          instrucoes,
           equipamento,
-          dificuldade: String(dificuldade || 'intermediario').toLowerCase(),
+          dificuldade: String(dificuldade || 'intermediario').toLowerCase().trim(),
           imagem_url,
           video_url,
           ativo,
@@ -145,6 +148,11 @@ const exercicioController = {
       }
       if (!existente) {
         return res.status(404).json({ erro: 'Exercício não encontrado.' });
+      }
+
+      // Verify academia ownership
+      if (existente.academia_id !== req.usuario.academia_id) {
+        return res.status(403).json({ erro: 'Não é permitido excluir exercícios de outra academia.' });
       }
 
       Exercicio.deletar(id, (err) => {

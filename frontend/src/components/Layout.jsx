@@ -14,10 +14,11 @@ const MENU_ITEMS = [
 ];
 
 const TREINAMENTO_SUBMENU = [
-  { path: '/treinos', label: 'Treinos', icon: '🏋️', roles: ['admin', 'professor'] },
-  { path: '/treinos/exercicios', label: 'Exercícios', icon: '💪', roles: ['admin', 'professor'] },
-  { path: '/treinos/grupos-musculares', label: 'Grupos musculares', icon: '🧬', roles: ['admin', 'professor'] },
-  { path: '/treinos/modelos', label: 'Modelos de treino', icon: '📑', roles: ['admin', 'professor'] },
+  { path: '/treinos', label: 'Treinos dos Alunos', icon: '🏋️', roles: ['admin', 'professor'] },
+  { path: '/treinos/modelos', label: 'Modelos de Treino', icon: '📑', roles: ['admin', 'professor'] },
+  { path: '/treinos/exercicios', label: 'Biblioteca de Exercícios', icon: '💪', roles: ['admin', 'professor'] },
+  { path: '/treinos/grupos-musculares', label: 'Grupos Musculares', icon: '🧬', roles: ['admin', 'professor'] },
+  { path: '/treinos/configuracoes', label: 'Configurações de Treinamento', icon: '⚙️', roles: ['admin', 'professor'] },
   { path: '/treinos/acompanhamento', label: 'Acompanhamento', icon: '📈', roles: ['admin', 'professor'] },
 ];
 

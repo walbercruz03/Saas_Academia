@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const authMiddleware = require('../middlewares/authMiddleware');
 const grupoMuscularController = require('../controllers/grupoMuscularController');
 
-// Se o seu projeto aplicar authMiddleware globalmente no app.js, mantém direto;
-// caso contrário, importe e aplique seu middleware JWT e de perfil ('admin', 'professor').
-router.get('/', grupoMuscularController.listar);
-router.get('/:id', grupoMuscularController.buscarPorId);
-router.post('/', grupoMuscularController.criar);
-router.put('/:id', grupoMuscularController.atualizar);
-router.delete('/:id', grupoMuscularController.deletar);
+router.get('/', authMiddleware, grupoMuscularController.listar);
+router.get('/:id', authMiddleware, grupoMuscularController.buscarPorId);
+router.post('/', authMiddleware, grupoMuscularController.criar);
+router.put('/:id', authMiddleware, grupoMuscularController.atualizar);
+router.delete('/:id', authMiddleware, grupoMuscularController.deletar);
 
 module.exports = router;

@@ -1,5 +1,7 @@
+
 /* ==========================================================
-   PÁGINA DASHBOARD - Wc Fit
+   PÁGINA DASHBOARD - WC FIT
+   Identidade visual: azul-marinho + azul-ciano
    ========================================================== */
 
 .dashboard-container {
@@ -19,11 +21,18 @@
   background: var(--bg-card, #ffffff);
   padding: 1.5rem;
   border-radius: var(--radius, 12px);
-  box-shadow: var(--shadow, 0 4px 12px rgba(15, 23, 42, 0.06));
+  box-shadow: var(
+    --shadow,
+    0 4px 12px rgba(15, 23, 42, 0.06)
+  );
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+
+/* ==========================================================
+   GRÁFICOS DO DASHBOARD
+   ========================================================== */
 
 .dashboard-grid-charts {
   display: grid;
@@ -31,6 +40,10 @@
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
+
+/* ==========================================================
+   INTELIGÊNCIA OPERACIONAL - WC FIT
+   ========================================================== */
 
 .relatorios-section {
   background: #ffffff;
@@ -41,8 +54,22 @@
   margin-bottom: 2.5rem;
 }
 
+/* Cabeçalho com o mesmo azul do menu lateral */
+
 .relatorios-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #0e7490 100%);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(0, 145, 255, 0.17),
+      transparent 45%
+    ),
+    linear-gradient(
+      165deg,
+      #061a3e 0%,
+      #082b60 48%,
+      #03132d 100%
+    );
+
   color: #ffffff;
   padding: 1.35rem 1.75rem;
   display: flex;
@@ -50,13 +77,16 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  border-bottom: 1px solid rgba(64, 165, 255, 0.18);
 }
+
+/* Selo Inteligência Operacional */
 
 .relatorios-badge {
   display: inline-block;
-  background: rgba(6, 182, 212, 0.2);
-  color: #67e8f9;
-  border: 1px solid rgba(103, 232, 249, 0.35);
+  background: rgba(0, 183, 237, 0.13);
+  color: #55d6ff;
+  border: 1px solid rgba(0, 183, 237, 0.4);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -76,8 +106,12 @@
 .relatorios-subtitle {
   margin: 0.2rem 0 0;
   font-size: 0.85rem;
-  color: #cbd5e1;
+  color: #b8cdea;
 }
+
+/* ==========================================================
+   CONTROLES DOS RELATÓRIOS
+   ========================================================== */
 
 .relatorios-controles {
   display: flex;
@@ -88,9 +122,9 @@
 
 .relatorios-select,
 .relatorios-date {
-  background: #1e293b;
+  background: #102c55;
   color: #f8fafc;
-  border: 1px solid #475569;
+  border: 1px solid #365b87;
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
@@ -101,6 +135,12 @@
   cursor: pointer;
 }
 
+.relatorios-select:focus,
+.relatorios-date:focus {
+  outline: 2px solid #55d6ff;
+  outline-offset: 2px;
+}
+
 .relatorios-date-label {
   display: inline-flex;
   align-items: center;
@@ -109,9 +149,14 @@
   color: #e2e8f0;
 }
 
+/* ==========================================================
+   BOTÕES DOS RELATÓRIOS
+   ========================================================== */
+
 .relatorios-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   border: none;
   border-radius: 8px;
@@ -119,7 +164,11 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
 
 .relatorios-btn:hover:not(:disabled) {
@@ -131,21 +180,43 @@
   cursor: not-allowed;
 }
 
+/* Atualizar */
+
 .relatorios-btn-secundario {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(8, 119, 255, 0.18);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(85, 214, 255, 0.3);
 }
 
-.relatorios-btn-primario {
-  background: #06b6d4;
-  color: #082f49;
+.relatorios-btn-secundario:hover:not(:disabled) {
+  background: rgba(8, 119, 255, 0.35);
 }
+
+/* Gerar PDF */
+
+.relatorios-btn-primario {
+  background: #00b7ed;
+  color: #061a3e;
+}
+
+.relatorios-btn-primario:hover:not(:disabled) {
+  background: #55d6ff;
+}
+
+/* Imprimir */
 
 .relatorios-btn-imprimir {
   background: #f8fafc;
   color: #0f172a;
 }
+
+.relatorios-btn-imprimir:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+/* ==========================================================
+   CONTEÚDO DOS RELATÓRIOS
+   ========================================================== */
 
 .relatorios-body {
   padding: 1.5rem 1.75rem;
@@ -157,6 +228,8 @@
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
+
+/* Cards dos indicadores */
 
 .relatorio-kpi-card {
   background: #f8fafc;
@@ -187,6 +260,10 @@
   margin-top: 0.2rem;
 }
 
+/* ==========================================================
+   AVISOS DOS RELATÓRIOS
+   ========================================================== */
+
 .relatorio-aviso-box {
   background: #fffbeb;
   border: 1px solid #fde68a;
@@ -196,6 +273,10 @@
   font-size: 0.84rem;
   margin-bottom: 1.25rem;
 }
+
+/* ==========================================================
+   ABAS DOS RELATÓRIOS
+   ========================================================== */
 
 .relatorio-tabs {
   display: flex;
@@ -215,12 +296,27 @@
   font-size: 0.83rem;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.relatorio-tab:hover {
+  background: #e2e8f0;
 }
 
 .relatorio-tab.ativa {
-  background: #0f172a;
+  background: #082b60;
   color: #ffffff;
 }
+
+.relatorio-tab.ativa:hover {
+  background: #0a397a;
+}
+
+/* ==========================================================
+   TABELAS DOS RELATÓRIOS
+   ========================================================== */
 
 .relatorio-tabela-wrapper {
   width: 100%;
@@ -262,16 +358,25 @@
   font-size: 0.88rem;
 }
 
+/* ==========================================================
+   IMPRESSÃO
+   ========================================================== */
+
 @media print {
   .relatorios-controles,
   .relatorio-tabs {
     display: none !important;
   }
+
   .relatorios-section {
     box-shadow: none;
     border: 1px solid #cbd5e1;
   }
 }
+
+/* ==========================================================
+   RESPONSIVIDADE
+   ========================================================== */
 
 @media (max-width: 768px) {
   .stats-grid {
@@ -280,5 +385,39 @@
 
   .dashboard-grid-charts {
     grid-template-columns: 1fr;
+  }
+
+  .relatorios-header {
+    padding: 1.15rem;
+  }
+
+  .relatorios-body {
+    padding: 1rem;
+  }
+
+  .relatorios-controles {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .relatorios-select,
+  .relatorios-date {
+    max-width: 100%;
+  }
+
+  .relatorios-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relatorios-btn,
+  .relatorio-tab {
+    transition: none;
+  }
+
+  .relatorios-btn:hover:not(:disabled) {
+    transform: none;
   }
 }

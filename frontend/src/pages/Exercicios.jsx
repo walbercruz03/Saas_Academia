@@ -6,15 +6,10 @@ import '../styles/treinamento.css';
 
 const ITENS_POR_PAGINA = 6;
 
-const DIFICULDADE_LABEL = {
-  iniciante: 'Iniciante',
-  intermediario: 'Intermediário',
-  avancado: 'Avançado',
-};
-
 const estadoInicialForm = {
   nome: '',
   descricao: '',
+  instrucoes: '',
   equipamento: '',
   dificuldade: 'intermediario',
   imagem_url: '',
@@ -27,6 +22,7 @@ const estadoInicialForm = {
 export default function Exercicios() {
   const [exercicios, setExercicios] = useState([]);
   const [grupos, setGrupos] = useState([]);
+  const [niveisDificuldade, setNiveisDificuldade] = useState([]);
 
   const [busca, setBusca] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
@@ -43,6 +39,11 @@ export default function Exercicios() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+
+  // Identificar academia do usuário logado
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+  const academiaId = usuario.academia_id == null ? null : Number(usuario.academia_id);
+  const ehAdminGlobal = usuario.cargo === 'admin' && academiaId === 0;
 
   useEffect(() => {
     carregarDados();
@@ -62,13 +63,19 @@ export default function Exercicios() {
     setErro(msg);
   };
 
+  // Verificar se exercício é da biblioteca global (academia_id = 0)
+  const ehExercicioGlobal = (ex) => {
+    return ex.academia_id != null && Number(ex.academia_id) === 0;
+  };
+
   const carregarDados = async () => {
     setCarregando(true);
     setErro('');
     try {
-      const [resExercicios, resGrupos] = await Promise.all([
+      const [resExercicios, resGrupos, resNiveis] = await Promise.all([
         api.get('/exercicios').catch(() => ({ data: [] })),
         api.get('/grupos-musculares').catch(() => ({ data: [] })),
+        api.get('/niveis-dificuldade').catch(() => ({ data: [] })),
       ]);
 
       const listaExercicios = Array.isArray(resExercicios.data)
@@ -77,9 +84,13 @@ export default function Exercicios() {
       const listaGrupos = Array.isArray(resGrupos.data)
         ? resGrupos.data
         : resGrupos.data?.grupos || [];
+      const listaNiveis = Array.isArray(resNiveis.data)
+        ? resNiveis.data
+        : resNiveis.data?.niveis || [];
 
       setExercicios(listaExercicios);
       setGrupos(listaGrupos);
+      setNiveisDificuldade(listaNiveis);
     } catch (err) {
       console.error(err);
       notificarErro('Erro ao carregar biblioteca de exercícios.');
@@ -87,6 +98,19 @@ export default function Exercicios() {
       setCarregando(false);
     }
   };
+
+  const obterRotuloDificuldade = useMemo(() => {
+    const mapa = {};
+    niveisDificuldade.forEach((n) => {
+      if (n.slug) mapa[n.slug.toLowerCase()] = n.nome;
+      if (n.nome) mapa[n.nome.toLowerCase()] = n.nome;
+    });
+    return (slug) => {
+      if (!slug) return 'Intermediário';
+      const key = String(slug).toLowerCase();
+      return mapa[key] || slug.charAt(0).toUpperCase() + slug.slice(1);
+    };
+  }, [niveisDificuldade]);
 
   const equipamentosDisponiveis = useMemo(() => {
     const setEq = new Set();
@@ -100,6 +124,15 @@ export default function Exercicios() {
 
   const exerciciosFiltrados = useMemo(() => {
     return exercicios.filter((ex) => {
+      // Filtrar por academia: mostrar globais + da academia do usuário
+      const ehGlobal = ehExercicioGlobal(ex);
+      const ehDaAcademia = !ehGlobal && academiaId != null && Number(ex.academia_id) === academiaId;
+
+      // Se não for global e não for da academia do usuário, excluir
+      if (!ehGlobal && !ehDaAcademia) {
+        return false;
+      }
+
       if (busca.trim()) {
         const termo = busca.trim().toLowerCase();
         const matchNome = String(ex.nome || '').toLowerCase().includes(termo);
@@ -126,7 +159,7 @@ export default function Exercicios() {
 
       return true;
     });
-  }, [exercicios, busca, filtroGrupo, filtroDificuldade, filtroEquipamento]);
+  }, [exercicios, busca, filtroGrupo, filtroDificuldade, filtroEquipamento, academiaId]);
 
   const totalPaginas = Math.max(1, Math.ceil(exerciciosFiltrados.length / ITENS_POR_PAGINA));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
@@ -165,6 +198,7 @@ export default function Exercicios() {
     setForm({
       nome: ex.nome || '',
       descricao: ex.descricao || '',
+      instrucoes: ex.instrucoes || '',
       equipamento: ex.equipamento || '',
       dificuldade: ex.dificuldade || 'intermediario',
       imagem_url: ex.imagem_url || '',
@@ -199,6 +233,7 @@ export default function Exercicios() {
       const payload = {
         nome: form.nome.trim(),
         descricao: form.descricao.trim() || null,
+        instrucoes: form.instrucoes.trim() || null,
         equipamento: form.equipamento.trim() || null,
         dificuldade: form.dificuldade,
         imagem_url: form.imagem_url.trim() || null,
@@ -240,6 +275,47 @@ export default function Exercicios() {
     } catch (err) {
       console.error(err);
       notificarErro(err?.response?.data?.erro || 'Erro ao excluir exercício.');
+    }
+  };
+
+  const duplicarExercicio = async (ex) => {
+    // Impedir duplicar exercícios que já são da academia (só permite duplicar do sistema)
+    if (!ehExercicioGlobal(ex)) {
+      notificarErro('Não é possível duplicar exercícios da sua academia. Use os próprios exercícios da academia.');
+      return;
+    }
+
+    if (academiaId == null || academiaId <= 0) {
+      notificarErro('É necessária uma academia autenticada para duplicar.');
+      return;
+    }
+    setSalvando(true);
+    setErro('');
+    setSucesso('');
+
+    try {
+      const payload = {
+        nome: `${ex.nome} (Cópia)`,
+        descricao: ex.descricao || '',
+        equipamento: ex.equipamento || '',
+        dificuldade: ex.dificuldade,
+        instrucoes: ex.instrucoes || '',
+        imagem_url: ex.imagem_url || null,
+        video_url: ex.video_url || null,
+        ativo: ex.ativo ? 1 : 0,
+        grupos_principais: (ex.grupos_principais || []).map(g => Number(g.id)),
+        grupos_secundarios: (ex.grupos_secundarios || []).map(g => Number(g.id)),
+      };
+
+      await api.post('/exercicios', payload);
+      notificarSucesso('Exercício duplicado para sua academia com sucesso!');
+      setSalvando(false);
+      await carregarDados();
+    } catch (err) {
+      console.error(err);
+      notificarErro(err?.response?.data?.erro || 'Erro ao duplicar exercício.');
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -337,9 +413,11 @@ export default function Exercicios() {
               onChange={(e) => setFiltroDificuldade(e.target.value)}
             >
               <option value="">Todas as dificuldades</option>
-              <option value="iniciante">Iniciante</option>
-              <option value="intermediario">Intermediário</option>
-              <option value="avancado">Avançado</option>
+              {niveisDificuldade.map((n) => (
+                <option key={n.id} value={n.slug}>
+                  {n.nome}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -402,12 +480,17 @@ export default function Exercicios() {
                 {exerciciosPaginados.map((ex) => {
                   const principais = ex.grupos_principais || [];
                   const secundarios = ex.grupos_secundarios || [];
+                  const ehGlobal = ehExercicioGlobal(ex);
+                  const podeEditar = ehGlobal ? ehAdminGlobal : Number(ex.academia_id) === academiaId;
 
                   return (
                     <tr key={ex.id}>
                       <td>
                         <strong>{ex.nome}</strong>
                         {ex.descricao && <div>{ex.descricao}</div>}
+                        <span className={`treinamento-chip ${ehGlobal ? 'treinamento-chip--ativo-dourado' : 'treinamento-chip--ativo-teal'}`}>
+                          {ehGlobal ? 'Biblioteca do Sistema' : 'Minha Academia'}
+                        </span>
                       </td>
 
                       <td>
@@ -430,50 +513,28 @@ export default function Exercicios() {
 
                       <td>
                         <span className="treinamento-badge treinamento-badge--neutro">
-                          {DIFICULDADE_LABEL[ex.dificuldade] || ex.dificuldade || 'Intermediário'}
+                          {obterRotuloDificuldade(ex.dificuldade)}
                         </span>
                       </td>
 
                       <td>
                         <div className="treinamento-acoes-linha">
-                          {ex.imagem_url && (
-                            <button
-                              type="button"
-                              onClick={() => setDetalheExercicio(ex)}
-                              className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
-                            >
-                              Imagem
-                            </button>
-                          )}
-                          {ex.video_url && (
-                            <button
-                              type="button"
-                              onClick={() => setDetalheExercicio(ex)}
-                              className="treinamento-btn treinamento-btn--suave-verde treinamento-btn--sm"
-                            >
-                              Vídeo
-                            </button>
-                          )}
+                          {ex.imagem_url && <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Imagem</button>}
+                          {ex.video_url && <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Vídeo</button>}
                           {!ex.imagem_url && !ex.video_url && <span>—</span>}
                         </div>
                       </td>
 
                       <td>
                         <div className="treinamento-acoes-linha">
-                          <button
-                            type="button"
-                            onClick={() => abrirEditarModal(ex)}
-                            className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleExcluir(ex)}
-                            className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
-                          >
-                            Excluir
-                          </button>
+                          <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Visualizar</button>
+                          {podeEditar && <>
+                            <button type="button" onClick={() => abrirEditarModal(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Editar</button>
+                            <button type="button" onClick={() => handleExcluir(ex)} className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm">Excluir</button>
+                          </>}
+                          {ehGlobal && academiaId != null && academiaId > 0 && (
+                            <button type="button" disabled={salvando} onClick={() => duplicarExercicio(ex)} className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm">Duplicar</button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -558,9 +619,19 @@ export default function Exercicios() {
                   value={form.dificuldade}
                   onChange={(e) => setForm({ ...form, dificuldade: e.target.value })}
                 >
-                  <option value="iniciante">Iniciante</option>
-                  <option value="intermediario">Intermediário</option>
-                  <option value="avancado">Avançado</option>
+                  {niveisDificuldade.length === 0 ? (
+                    <>
+                      <option value="iniciante">Iniciante</option>
+                      <option value="intermediario">Intermediário</option>
+                      <option value="avancado">Avançado</option>
+                    </>
+                  ) : (
+                    niveisDificuldade.map((n) => (
+                      <option key={n.id} value={n.slug}>
+                        {n.nome}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -644,13 +715,24 @@ export default function Exercicios() {
               </div>
 
               <div className="treinamento-campo">
-                <label htmlFor="desc-ex">Descrição / Execução Técnica</label>
-                <textarea
+                <label htmlFor="desc-ex">Descrição Resumida</label>
+                <input
                   id="desc-ex"
-                  rows={3}
+                  type="text"
                   value={form.descricao}
                   onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Postura, amplitude, respiração e pontos de atenção..."
+                  placeholder="Visão geral do exercício..."
+                />
+              </div>
+
+              <div className="treinamento-campo">
+                <label htmlFor="inst-ex">Instruções Técnicas de Execução</label>
+                <textarea
+                  id="inst-ex"
+                  rows={3}
+                  value={form.instrucoes}
+                  onChange={(e) => setForm({ ...form, instrucoes: e.target.value })}
+                  placeholder="Postura inicial, pegada, amplitude, cadência e respiração..."
                 />
               </div>
 
@@ -689,15 +771,38 @@ export default function Exercicios() {
               </button>
             </div>
 
+            {detalheExercicio.descricao && (
+              <p style={{ marginTop: '0.5rem' }}>
+                <strong>Descrição: </strong>
+                {detalheExercicio.descricao}
+              </p>
+            )}
+
+            {detalheExercicio.instrucoes && (
+              <p style={{ marginTop: '0.5rem' }}>
+                <strong>Instruções de Execução: </strong>
+                {detalheExercicio.instrucoes}
+              </p>
+            )}
+
             {detalheExercicio.imagem_url && (
-              <div>
-                <img src={detalheExercicio.imagem_url} alt={detalheExercicio.nome} />
+              <div style={{ marginTop: '1rem' }}>
+                <img
+                  src={detalheExercicio.imagem_url}
+                  alt={detalheExercicio.nome}
+                  style={{ maxWidth: '100%', borderRadius: '8px' }}
+                />
               </div>
             )}
 
             {detalheExercicio.video_url && (
-              <div>
-                <a href={detalheExercicio.video_url} target="_blank" rel="noopener noreferrer">
+              <div style={{ marginTop: '1rem' }}>
+                <a
+                  href={detalheExercicio.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="treinamento-btn treinamento-btn--suave-verde"
+                >
                   Abrir vídeo de referência →
                 </a>
               </div>

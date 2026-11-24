@@ -1,6 +1,10 @@
+
 /* ==========================================================
-   PÁGINA FINANCEIRO (VENDAS, A RECEBER, A PAGAR) - WC FIT
+   WC FIT - PÁGINA FINANCEIRO
+   Vendas | Contas a Receber | Contas a Pagar
    ========================================================== */
+
+/* 1. CONTAINER PRINCIPAL */
 
 .fin-container {
   width: 100%;
@@ -9,6 +13,8 @@
   padding: 0 1.5rem 2.5rem;
   box-sizing: border-box;
 }
+
+/* 2. CABEÇALHO */
 
 .fin-header {
   display: flex;
@@ -32,10 +38,10 @@
   color: var(--text-muted, #64748b);
 }
 
-/* Botões de navegação entre Vendas / Contas a Receber / Contas a Pagar */
+/* 3. ABAS DE NAVEGAÇÃO */
+
 .fin-tabs {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
@@ -47,7 +53,6 @@
   align-items: center;
   justify-content: center;
   width: auto;
-  height: auto;
   min-height: 0;
   padding: 0.52rem 1rem;
   border-radius: 8px;
@@ -59,7 +64,10 @@
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .fin-tab-btn:hover {
@@ -73,7 +81,8 @@
   border-color: #0f172a;
 }
 
-/* Alertas */
+/* 4. MENSAGENS DE ALERTA */
+
 .fin-alerta {
   padding: 0.85rem 1rem;
   border-radius: 8px;
@@ -94,7 +103,8 @@
   border: 1px solid #fca5a5;
 }
 
-/* Cards de Resumo */
+/* 5. INDICADORES FINANCEIROS */
+
 .fin-resumo-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -134,14 +144,15 @@
   color: var(--text-primary, #0f172a);
 }
 
-/* Formulário de Lançamento */
+/* 6. FORMULÁRIO DE LANÇAMENTO */
+
 .fin-form-box {
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
   padding: 1.35rem;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
   margin-bottom: 1.75rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .fin-form-titulo {
@@ -183,6 +194,13 @@
   font-size: 0.88rem;
 }
 
+.fin-campo input:focus,
+.fin-campo select:focus {
+  outline: none;
+  border-color: #0891b2;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+}
+
 .fin-btn-salvar {
   width: 100%;
   padding: 0.62rem 1rem;
@@ -204,7 +222,8 @@
   cursor: not-allowed;
 }
 
-/* Tabela de Lançamentos */
+/* 7. CARD DE LANÇAMENTOS */
+
 .fin-tabela-box {
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
@@ -237,6 +256,120 @@
   color: var(--text-primary, #0f172a);
   font-size: 0.85rem;
 }
+
+/* 8. FILTRO PERSONALIZADO POR DATA
+   Posicionado dentro do card de lançamentos */
+
+.fin-periodo-box {
+  margin: 0 0 1rem;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  box-shadow: none;
+}
+
+.fin-periodo-cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fin-periodo-cabecalho h3 {
+  margin: 0;
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.fin-periodo-cabecalho span {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.fin-periodo-controles {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    auto
+    auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.fin-periodo-controles .fin-campo {
+  min-width: 0;
+}
+
+.fin-periodo-controles input[type="date"] {
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  background: var(--bg-input, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.fin-periodo-controles input[type="date"]:focus {
+  outline: none;
+  border-color: #0891b2;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+}
+
+.fin-periodo-controles button {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fin-periodo-aplicar {
+  border: 1px solid #0891b2;
+  background: #0891b2;
+  color: #ffffff;
+}
+
+.fin-periodo-aplicar:hover {
+  background: #0e7490;
+}
+
+.fin-periodo-limpar {
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #334155);
+}
+
+.fin-periodo-limpar:hover {
+  border-color: #0891b2;
+  color: #0891b2;
+}
+
+.fin-periodo-erro {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+.fin-periodo-ativo {
+  margin: 10px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+}
+
+/* 9. TABELA DE LANÇAMENTOS */
 
 .fin-tabela-wrap {
   width: 100%;
@@ -272,6 +405,8 @@
   border-bottom: none;
 }
 
+/* 10. BADGES DE STATUS */
+
 .fin-badge {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -301,6 +436,8 @@
   color: #475569;
 }
 
+/* 11. BOTÕES DE AÇÃO */
+
 .fin-acoes {
   display: flex;
   gap: 0.4rem;
@@ -327,6 +464,8 @@
   border: 1px solid #fecaca;
 }
 
+/* 12. ESTADO VAZIO */
+
 .fin-vazio {
   padding: 1.5rem 1rem;
   text-align: center;
@@ -334,12 +473,25 @@
   font-size: 0.88rem;
 }
 
-/* Responsividade */
+/* 13. MODO ESCURO */
+
+[data-theme="dark"] .fin-periodo-controles input[type="date"] {
+  color-scheme: dark;
+}
+
+/* 14. RESPONSIVIDADE - TABLETS */
+
 @media (max-width: 1024px) {
   .fin-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .fin-periodo-controles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
+
+/* 15. RESPONSIVIDADE - CELULARES */
 
 @media (max-width: 768px) {
   .fin-container {
@@ -399,5 +551,21 @@
   .fin-tabela td {
     padding: 0.15rem 0;
     border: none;
+  }
+}
+
+/* 16. CELULARES PEQUENOS */
+
+@media (max-width: 480px) {
+  .fin-periodo-controles {
+    grid-template-columns: 1fr;
+  }
+
+  .fin-periodo-controles button {
+    width: 100%;
+  }
+
+  .fin-periodo-box {
+    padding: 12px;
   }
 }

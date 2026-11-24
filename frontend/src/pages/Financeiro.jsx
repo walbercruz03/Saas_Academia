@@ -79,6 +79,10 @@ export default function Financeiro({ abaInicial = 'venda' }) {
   const [alunos, setAlunos] = useState([]);
   const [planos, setPlanos] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState('');
+  const [dataInicial, setDataInicial] = useState('');
+  const [dataFinal, setDataFinal] = useState('');
+  const [periodoAplicado, setPeriodoAplicado] = useState({ inicio: '', fim: '' });
+  const [erroPeriodo, setErroPeriodo] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
@@ -218,11 +222,39 @@ export default function Financeiro({ abaInicial = 'venda' }) {
     }
   };
 
-  const totalGeral = movimentacoes.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-  const totalPago = movimentacoes
+  const aplicarPeriodo = (e) => {
+    e.preventDefault();
+    if ((dataInicial && !dataFinal) || (!dataInicial && dataFinal)) {
+      setErroPeriodo('Selecione as duas datas para filtrar.');
+      return;
+    }
+    if (dataInicial && dataFinal && dataInicial > dataFinal) {
+      setErroPeriodo('A data inicial não pode ser posterior à data final.');
+      return;
+    }
+    setErroPeriodo('');
+    setPeriodoAplicado({ inicio: dataInicial, fim: dataFinal });
+  };
+
+  const limparPeriodo = () => {
+    setDataInicial('');
+    setDataFinal('');
+    setPeriodoAplicado({ inicio: '', fim: '' });
+    setErroPeriodo('');
+  };
+
+  // Filtragem local por vencimento, preservando o filtro de status da API.
+  const movimentacoesFiltradas = movimentacoes.filter((m) => {
+    if (!periodoAplicado.inicio || !periodoAplicado.fim) return true;
+    const data = String(m.data_vencimento || '').slice(0, 10);
+    return data >= periodoAplicado.inicio && data <= periodoAplicado.fim;
+  });
+
+  const totalGeral = movimentacoesFiltradas.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
+  const totalPago = movimentacoesFiltradas
     .filter((m) => m.status === 'pago')
     .reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-  const totalPendente = movimentacoes
+  const totalPendente = movimentacoesFiltradas
     .filter((m) => m.status === 'pendente')
     .reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
 
@@ -420,9 +452,39 @@ export default function Financeiro({ abaInicial = 'venda' }) {
           </select>
         </div>
 
+      {/* Filtro personalizado por data de vencimento */}
+      <form className="fin-periodo-box" onSubmit={aplicarPeriodo}>
+        <div className="fin-periodo-cabecalho">
+          <h3>Filtrar por período</h3>
+          <span>Data de vencimento / lançamento</span>
+        </div>
+        <div className="fin-periodo-controles">
+          <div className="fin-campo">
+            <label htmlFor="fin-data-inicial">Data inicial</label>
+            <input id="fin-data-inicial" type="date" value={dataInicial}
+              onChange={(e) => setDataInicial(e.target.value)} />
+          </div>
+          <div className="fin-campo">
+            <label htmlFor="fin-data-final">Data final</label>
+            <input id="fin-data-final" type="date" value={dataFinal}
+              onChange={(e) => setDataFinal(e.target.value)} />
+          </div>
+          <button className="fin-periodo-aplicar" type="submit">Filtrar</button>
+          <button className="fin-periodo-limpar" type="button" onClick={limparPeriodo}>
+            Limpar filtro
+          </button>
+        </div>
+        {erroPeriodo && <p className="fin-periodo-erro" role="alert">{erroPeriodo}</p>}
+        {periodoAplicado.inicio && periodoAplicado.fim && (
+          <p className="fin-periodo-ativo">
+            Exibindo de {formatarDataBR(periodoAplicado.inicio)} até {formatarDataBR(periodoAplicado.fim)}
+          </p>
+        )}
+      </form>
+
         {carregando ? (
           <div className="fin-vazio">Carregando lançamentos...</div>
-        ) : movimentacoes.length === 0 ? (
+        ) : movimentacoesFiltradas.length === 0 ? (
           <div className="fin-vazio">Nenhum lançamento encontrado para {configAtual.titulo}.</div>
         ) : (
           <div className="fin-tabela-wrap">
@@ -439,7 +501,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
                 </tr>
               </thead>
               <tbody>
-                {movimentacoes.map((m) => (
+                {movimentacoesFiltradas.map((m) => (
                   <tr key={m.id}>
                     <td>{m.descricao}</td>
                     {tipoAtual !== 'pagar' && <td>{m.aluno_nome || '—'}</td>}

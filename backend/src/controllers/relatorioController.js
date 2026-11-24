@@ -1,19 +1,17 @@
 const service = require('../services/relatorioService');
 const { gerarPDF } = require('../utils/pdfGenerator');
 
+const parametros = (req) => ({
+  tipo: req.query.tipo || 'geral',
+  periodo: req.query.periodo || 'hoje',
+  dataInicio: req.query.dataInicio,
+  dataFim: req.query.dataFim,
+  academiaId: req.usuario?.academia_id,
+});
+
 const obterRelatorio = async (req, res) => {
   try {
-    const tipo = req.query.tipo || 'geral';
-    const periodo = req.query.periodo || 'hoje';
-    const dataInicio = req.query.dataInicio;
-    const dataFim = req.query.dataFim;
-
-    const dados = await service.obterDadosRelatorio({
-      tipo,
-      periodo,
-      dataInicio,
-      dataFim,
-    });
+    const dados = await service.obterDadosRelatorio(parametros(req));
 
     return res.json({
       sucesso: true,
@@ -23,8 +21,8 @@ const obterRelatorio = async (req, res) => {
     });
   } catch (err) {
     console.error('Erro ao obter relatório:', err);
-    const status = err.statusCode || 500;
-    return res.status(status).json({
+
+    return res.status(err.statusCode || 500).json({
       sucesso: false,
       mensagem: err.message || 'Erro ao obter dados do relatório.',
     });
@@ -38,30 +36,17 @@ const obterRelatorioHoje = async (req, res) => {
 
 const gerarPDFRelatorio = async (req, res) => {
   try {
-    const tipo = req.query.tipo || 'geral';
-    const periodo = req.query.periodo || 'hoje';
-    const dataInicio = req.query.dataInicio;
-    const dataFim = req.query.dataFim;
+    const dados = await service.obterDadosRelatorio(parametros(req));
 
-    const dados = await service.obterDadosRelatorio({
-      tipo,
-      periodo,
-      dataInicio,
-      dataFim,
-    });
-
-    return gerarPDF(
-      {
-        ...dados,
-        geradoEm: new Date().toISOString(),
-        usuario: req.usuario,
-      },
-      res
-    );
+    return gerarPDF({
+      ...dados,
+      geradoEm: new Date().toISOString(),
+      usuario: req.usuario,
+    }, res);
   } catch (err) {
     console.error('Erro ao gerar PDF do relatório:', err);
-    const status = err.statusCode || 500;
-    return res.status(status).json({
+
+    return res.status(err.statusCode || 500).json({
       sucesso: false,
       mensagem: err.message || 'Erro ao gerar relatório PDF.',
     });

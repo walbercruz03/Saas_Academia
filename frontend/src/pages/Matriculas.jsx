@@ -18,6 +18,44 @@ const normalizarDataInput = (valor) => {
   return String(valor).trim().slice(0, 10);
 };
 
+const hojeISO = () => {
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, '0');
+  const dia = String(agora.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};
+
+const calcularVencimentoPorPlano = (inicioStr, plano) => {
+  if (!inicioStr || !plano) return '';
+  const base = new Date(`${normalizarDataInput(inicioStr)}T12:00:00`);
+  if (Number.isNaN(base.getTime())) return '';
+
+  const dias = Number(plano.duracao_dias ?? plano.dias ?? 0);
+  if (dias > 0) {
+    const venc = new Date(base);
+    venc.setDate(venc.getDate() + dias);
+    return venc.toISOString().slice(0, 10);
+  }
+
+  const meses = Number(plano.duracao_meses ?? plano.meses ?? plano.duracao ?? 0);
+  if (meses > 0) {
+    const venc = new Date(base);
+    venc.setMonth(venc.getMonth() + meses);
+    return venc.toISOString().slice(0, 10);
+  }
+
+  return '';
+};
+
+const extrairValorPlano = (plano) => {
+  if (!plano) return '';
+  const raw = plano.valor ?? plano.preco ?? plano.valor_mensal ?? plano.mensalidade;
+  if (raw === undefined || raw === null || raw === '') return '';
+  const num = Number(String(raw).replace(',', '.'));
+  return Number.isFinite(num) ? String(num) : String(raw);
+};
+
 export default function Matriculas() {
   const [matriculas, setMatriculas] = useState([]);
   const [alunos, setAlunos] = useState([]);
@@ -48,7 +86,35 @@ export default function Matriculas() {
   };
 
   const handleChange = (e) => {
-    setMatricula({ ...matricula, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === 'plano_id') {
+      const planoSelecionado = planos.find((pl) => String(pl.id) === String(value));
+      const dataInicioAtual = matricula.data_inicio || hojeISO();
+      const vencimentoCalculado = calcularVencimentoPorPlano(dataInicioAtual, planoSelecionado);
+
+      setMatricula((prev) => ({
+        ...prev,
+        plano_id: value,
+        data_inicio: value ? dataInicioAtual : prev.data_inicio,
+        data_vencimento: vencimentoCalculado || prev.data_vencimento,
+        valor_pago: planoSelecionado ? extrairValorPlano(planoSelecionado) : '',
+      }));
+      return;
+    }
+
+    if (name === 'data_inicio' && matricula.plano_id) {
+      const planoSelecionado = planos.find((pl) => String(pl.id) === String(matricula.plano_id));
+      const vencimentoCalculado = calcularVencimentoPorPlano(value, planoSelecionado);
+      setMatricula((prev) => ({
+        ...prev,
+        data_inicio: value,
+        data_vencimento: vencimentoCalculado || prev.data_vencimento,
+      }));
+      return;
+    }
+
+    setMatricula((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {

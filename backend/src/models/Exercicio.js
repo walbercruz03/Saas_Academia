@@ -12,7 +12,9 @@ const Exercicio = {
         imagem_url TEXT,
         video_url TEXT,
         ativo INTEGER NOT NULL DEFAULT 1,
-        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        academia_id INTEGER,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (academia_id) REFERENCES academias(id)
       )
     `;
     db.run(query, (err) => {
@@ -118,9 +120,16 @@ const Exercicio = {
     });
   },
 
-  listar: ({ busca = '', equipamento = '', dificuldade = '', grupoMuscularId = '', apenasAtivos = false } = {}, callback) => {
+  listar: ({ busca = '', equipamento = '', dificuldade = '', grupoMuscularId = '', apenasAtivos = false, academia_id } = {}, callback) => {
     const params = [];
     const conditions = [];
+
+    // Always filter by academia_id if provided
+    if (academia_id && String(academia_id).trim() !== '') {
+      conditions.push(`e.academia_id = ?`);
+      params.push(Number(academia_id));
+    }
+
     let sql = `SELECT DISTINCT e.* FROM exercicios e`;
 
     if (grupoMuscularId && String(grupoMuscularId).trim() !== '') {
@@ -143,10 +152,6 @@ const Exercicio = {
     if (dificuldade && dificuldade.trim() !== '') {
       conditions.push(`LOWER(e.dificuldade) = LOWER(?)`);
       params.push(dificuldade.trim());
-    }
-
-    if (apenasAtivos) {
-      conditions.push(`e.ativo = 1`);
     }
 
     if (conditions.length > 0) {
@@ -176,28 +181,32 @@ const Exercicio = {
     const {
       nome,
       descricao = null,
+      instrucoes = null,
       equipamento = null,
       dificuldade = 'intermediario',
       imagem_url = null,
       video_url = null,
       ativo = 1,
+      academia_id,
       grupos_principais = [],
       grupos_secundarios = [],
     } = dados;
 
     const sql = `
-      INSERT INTO exercicios (nome, descricao, equipamento, dificuldade, imagem_url, video_url, ativo)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO exercicios (nome, descricao, instrucoes, equipamento, dificuldade, imagem_url, video_url, ativo, academia_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
       nome.trim(),
       descricao ? descricao.trim() : null,
+      instrucoes ? instrucoes.trim() : null,
       equipamento ? equipamento.trim() : null,
       dificuldade || 'intermediario',
       imagem_url ? imagem_url.trim() : null,
       video_url ? video_url.trim() : null,
       ativo === false || ativo === 0 ? 0 : 1,
+      academia_id,
     ];
 
     db.run(sql, params, function (err) {
@@ -216,29 +225,33 @@ const Exercicio = {
     const {
       nome,
       descricao = null,
+      instrucoes = null,
       equipamento = null,
       dificuldade = 'intermediario',
       imagem_url = null,
       video_url = null,
       ativo = 1,
+      academia_id,
       grupos_principais = [],
       grupos_secundarios = [],
     } = dados;
 
     const sql = `
       UPDATE exercicios
-      SET nome = ?, descricao = ?, equipamento = ?, dificuldade = ?, imagem_url = ?, video_url = ?, ativo = ?
+      SET nome = ?, descricao = ?, instrucoes = ?, equipamento = ?, dificuldade = ?, imagem_url = ?, video_url = ?, ativo = ?, academia_id = ?
       WHERE id = ?
     `;
 
     const params = [
       nome.trim(),
       descricao ? descricao.trim() : null,
+      instrucoes ? instrucoes.trim() : null,
       equipamento ? equipamento.trim() : null,
       dificuldade || 'intermediario',
       imagem_url ? imagem_url.trim() : null,
       video_url ? video_url.trim() : null,
       ativo === false || ativo === 0 ? 0 : 1,
+      academia_id,
       id,
     ];
 

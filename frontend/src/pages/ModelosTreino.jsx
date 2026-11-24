@@ -1,19 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
 import '../styles/treinamento.css';
 
 const ITENS_POR_PAGINA = 6;
 
-const NIVEL_LABEL = {
-  iniciante: 'Iniciante',
-  intermediario: 'Intermediário',
-  avancado: 'Avançado',
-};
-
 const criarItemExercicio = (ordem = 1, base = {}) => ({
+  id: base.id || null,
   exercicio_id: base.exercicio_id ? String(base.exercicio_id) : '',
+  nome: base.nome || '',
   ordem,
   series: base.series || '3',
   repeticoes: base.repeticoes || '12',
@@ -22,39 +18,59 @@ const criarItemExercicio = (ordem = 1, base = {}) => ({
   observacao: base.observacao || '',
 });
 
+const criarDivisaoInicial = (letra = 'A', ordem = 1) => ({
+  id: `div-local-${Date.now()}-${ordem}`,
+  nome: `Treino ${letra}`,
+  descricao: '',
+  ordem,
+  exercicios: [criarItemExercicio(1)],
+});
+
 const estadoInicialForm = {
   nome: '',
-  divisao: 'Treino A',
-  nivel: 'intermediario',
   descricao: '',
+  modalidade_id: '',
+  nivel_id: '',
+  nivel: 'intermediario',
+  objetivo: '',
   ativo: true,
-  exercicios: [criarItemExercicio(1)],
+  divisoes: [criarDivisaoInicial('A', 1)],
 };
 
 export default function ModelosTreino() {
-  const navigate = useNavigate();
-
   const [modelos, setModelos] = useState([]);
+  const [modalidades, setModalidades] = useState([]);
+  const [niveis, setNiveis] = useState([]);
   const [exerciciosCatalogo, setExerciciosCatalogo] = useState([]);
-  const [alunos, setAlunos] = useState([]);
 
+  // Filtros
   const [busca, setBusca] = useState('');
+  const [filtroModalidade, setFiltroModalidade] = useState('');
   const [filtroNivel, setFiltroNivel] = useState('');
   const [paginaAtual, setPaginaAtual] = useState(1);
 
+  // Modal de Criação / Edição
   const [modalAberto, setModalAberto] = useState(false);
+  const [etapaForm, setEtapaForm] = useState(1); // 1: Geral | 2: Divisões & Exercícios
   const [editandoModelo, setEditandoModelo] = useState(null);
   const [form, setForm] = useState(estadoInicialForm);
+  const [divisaoAtivaIndex, setDivisaoAtivaIndex] = useState(0);
+  const [buscaExercicioBib, setBuscaExercicioBib] = useState('');
 
-  const [modeloReutilizar, setModeloReutilizar] = useState(null);
-  const [alunoReutilizarId, setAlunoReutilizarId] = useState('');
-  const [divisaoReutilizar, setDivisaoReutilizar] = useState('');
-  const [reutilizando, setReutilizando] = useState(false);
+  // Modal de Detalhes
+  const [modeloDetalhe, setModeloDetalhe] = useState(null);
+  const [divisaoDetalheIndex, setDivisaoDetalheIndex] = useState(0);
 
+  // Estados gerais
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+
+  // Identificar academia do usuário logado
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+  const academiaId = usuario.academia_id == null ? null : Number(usuario.academia_id);
+  const ehAdminGlobal = usuario.cargo === 'admin' && (academiaId === null || academiaId === 0);
 
   useEffect(() => {
     carregarDados();
@@ -62,7 +78,7 @@ export default function ModelosTreino() {
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [busca, filtroNivel]);
+  }, [busca, filtroModalidade, filtroNivel]);
 
   const notificarSucesso = (msg) => {
     setErro('');
@@ -78,25 +94,22 @@ export default function ModelosTreino() {
     setCarregando(true);
     setErro('');
     try {
-      const [resModelos, resExercicios, resAlunos] = await Promise.all([
+      const [resModelos, resModalidades, resNiveis, resExercicios] = await Promise.all([
         api.get('/modelos-treino').catch(() => ({ data: [] })),
-        api.get('/exercicios').catch(() => ({ data: [] })),
-        api.get('/alunos').catch(() => ({ data: [] })),
+        api.get('/modalidades').catch(() => ({ data: [] })),
+        api.get('/niveis-dificuldade').catch(() => ({ data: [] })),
+        api.get('/exercicios', { params: { apenas_ativos: 1 } }).catch(() => ({ data: [] })),
       ]);
 
-      const listaModelos = Array.isArray(resModelos.data)
-        ? resModelos.data
-        : resModelos.data?.modelos || [];
-      const listaExercicios = Array.isArray(resExercicios.data)
-        ? resExercicios.data
-        : resExercicios.data?.exercicios || [];
-      const listaAlunos = Array.isArray(resAlunos.data)
-        ? resAlunos.data
-        : resAlunos.data?.alunos || [];
+      const listaModelos = Array.isArray(resModelos.data) ? resModelos.data : [];
+      const listaModalidades = Array.isArray(resModalidades.data) ? resModalidades.data : [];
+      const listaNiveis = Array.isArray(resNiveis.data) ? resNiveis.data : [];
+      const listaExercicios = Array.isArray(resExercicios.data) ? resExercicios.data : [];
 
       setModelos(listaModelos);
+      setModalidades(listaModalidades);
+      setNiveis(listaNiveis);
       setExerciciosCatalogo(listaExercicios);
-      setAlunos(listaAlunos);
     } catch (err) {
       console.error(err);
       notificarErro('Erro ao carregar modelos de treino.');
@@ -105,23 +118,41 @@ export default function ModelosTreino() {
     }
   };
 
+  // Verificar se modelo é da biblioteca global (academia_id = 0)
+  const ehModeloGlobal = (modelo) => {
+    return modelo.academia_id != null && Number(modelo.academia_id) === 0;
+  };
+
+  // Filtrar modelos para exibição: globais + da academia do usuário
   const modelosFiltrados = useMemo(() => {
     return modelos.filter((m) => {
+      // Primeiro: filtrar por academia (globais + da academia do usuário)
+      const ehGlobal = ehModeloGlobal(m);
+      const ehDaAcademia = academiaId != null && Number(m.academia_id) === academiaId;
+      if (!ehGlobal && !ehDaAcademia) {
+        return false;
+      }
+
+      // Depois: filtros existentes
       if (busca.trim()) {
         const termo = busca.trim().toLowerCase();
         const matchNome = String(m.nome || '').toLowerCase().includes(termo);
         const matchDesc = String(m.descricao || '').toLowerCase().includes(termo);
-        const matchDiv = String(m.divisao || '').toLowerCase().includes(termo);
-        if (!matchNome && !matchDesc && !matchDiv) return false;
+        const matchObj = String(m.objetivo || '').toLowerCase().includes(termo);
+        if (!matchNome && !matchDesc && !matchObj) return false;
       }
 
-      if (filtroNivel && String(m.nivel || '').toLowerCase() !== filtroNivel) {
+      if (filtroModalidade && String(m.modalidade_id) !== String(filtroModalidade)) {
+        return false;
+      }
+
+      if (filtroNivel && String(m.nivel_id) !== String(filtroNivel) && String(m.nivel).toLowerCase() !== filtroNivel.toLowerCase()) {
         return false;
       }
 
       return true;
     });
-  }, [modelos, busca, filtroNivel]);
+  }, [modelos, busca, filtroModalidade, filtroNivel, academiaId]);
 
   const totalPaginas = Math.max(1, Math.ceil(modelosFiltrados.length / ITENS_POR_PAGINA));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
@@ -134,86 +165,202 @@ export default function ModelosTreino() {
   const resumo = useMemo(() => {
     const total = modelos.length;
     const ativos = modelos.filter((m) => m.ativo !== 0 && m.ativo !== false).length;
-    const totalItens = modelos.reduce(
-      (acc, m) => acc + (Array.isArray(m.exercicios) ? m.exercicios.length : 0),
-      0
-    );
-    return { total, ativos, totalItens };
+    const totalAlunos = modelos.reduce((acc, m) => acc + Number(m.total_alunos_vinculados || 0), 0);
+    return { total, ativos, totalAlunos };
   }, [modelos]);
 
-  const reordenarItens = (lista) =>
-    lista.map((item, idx) => ({
-      ...item,
-      ordem: idx + 1,
-    }));
+  // Filtro da biblioteca de exercícios no modal
+  const exerciciosBibFiltrados = useMemo(() => {
+    if (!buscaExercicioBib.trim()) return exerciciosCatalogo.slice(0, 8);
+    const termo = buscaExercicioBib.trim().toLowerCase();
+    return exerciciosCatalogo
+      .filter((ex) => {
+        const nome = String(ex.nome || '').toLowerCase();
+        const equip = String(ex.equipamento || '').toLowerCase();
+        return nome.includes(termo) || equip.includes(termo);
+      })
+      .slice(0, 10);
+  }, [exerciciosCatalogo, buscaExercicioBib]);
 
-  const adicionarExercicioAoForm = () => {
+  // --- GERENCIAMENTO DE DIVISÕES E EXERCÍCIOS NO FORMULÁRIO ---
+  const divisaoAtual = form.divisoes[divisaoAtivaIndex] || form.divisoes[0];
+
+  const adicionarDivisao = () => {
+    const proximaLetra = String.fromCharCode(65 + form.divisoes.length);
+    const novaDiv = criarDivisaoInicial(proximaLetra, form.divisoes.length + 1);
     setForm((prev) => ({
       ...prev,
-      exercicios: [...prev.exercicios, criarItemExercicio(prev.exercicios.length + 1)],
+      divisoes: [...prev.divisoes, novaDiv],
     }));
+    setDivisaoAtivaIndex(form.divisoes.length);
   };
 
-  const atualizarItemExercicio = (index, campo, valor) => {
+  const duplicarDivisaoAtual = () => {
+    if (!divisaoAtual) return;
+    const novaDiv = {
+      ...divisaoAtual,
+      id: `div-local-${Date.now()}`,
+      nome: `${divisaoAtual.nome} (Cópia)`,
+      ordem: form.divisoes.length + 1,
+      exercicios: (divisaoAtual.exercicios || []).map((ex, idx) =>
+        criarItemExercicio(idx + 1, { ...ex, id: null })
+      ),
+    };
+    setForm((prev) => ({
+      ...prev,
+      divisoes: [...prev.divisoes, novaDiv],
+    }));
+    setDivisaoAtivaIndex(form.divisoes.length);
+  };
+
+  const removerDivisaoAtual = () => {
+    if (form.divisoes.length <= 1) return;
     setForm((prev) => {
-      const proximos = [...prev.exercicios];
-      proximos[index] = { ...proximos[index], [campo]: valor };
-      return { ...prev, exercicios: proximos };
+      const filtradas = prev.divisoes.filter((_, idx) => idx !== divisaoAtivaIndex);
+      const reordenadas = filtradas.map((d, i) => ({ ...d, ordem: i + 1 }));
+      return { ...prev, divisoes: reordenadas };
+    });
+    setDivisaoAtivaIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const atualizarDivisaoAtual = (campo, valor) => {
+    setForm((prev) => {
+      const copia = [...prev.divisoes];
+      copia[divisaoAtivaIndex] = { ...copia[divisaoAtivaIndex], [campo]: valor };
+      return { ...prev, divisoes: copia };
     });
   };
 
-  const moverItemExercicio = (index, direcao) => {
-    const destino = index + direcao;
+  const adicionarExercicioNaDivisao = (exCatalogo = null) => {
     setForm((prev) => {
-      if (destino < 0 || destino >= prev.exercicios.length) return prev;
-      const copia = [...prev.exercicios];
-      const [removido] = copia.splice(index, 1);
-      copia.splice(destino, 0, removido);
-      return { ...prev, exercicios: reordenarItens(copia) };
+      const copiaDivs = [...prev.divisoes];
+      const divAtual = copiaDivs[divisaoAtivaIndex];
+      const listaEx = divAtual.exercicios || [];
+      const novoEx = criarItemExercicio(listaEx.length + 1, {
+        exercicio_id: exCatalogo ? exCatalogo.id : '',
+        nome: exCatalogo ? exCatalogo.nome : '',
+      });
+      copiaDivs[divisaoAtivaIndex] = {
+        ...divAtual,
+        exercicios: [...listaEx, novoEx],
+      };
+      return { ...prev, divisoes: copiaDivs };
     });
   };
 
-  const removerItemExercicio = (index) => {
+  const atualizarExercicioNaDivisao = (exIndex, campo, valor) => {
     setForm((prev) => {
-      if (prev.exercicios.length <= 1) return prev;
-      const filtrados = prev.exercicios.filter((_, idx) => idx !== index);
-      return { ...prev, exercicios: reordenarItens(filtrados) };
+      const copiaDivs = [...prev.divisoes];
+      const divAtual = copiaDivs[divisaoAtivaIndex];
+      const listaEx = [...divAtual.exercicios];
+
+      if (campo === 'exercicio_id') {
+        const achado = exerciciosCatalogo.find((c) => String(c.id) === String(valor));
+        listaEx[exIndex] = {
+          ...listaEx[exIndex],
+          exercicio_id: valor,
+          nome: achado ? achado.nome : listaEx[exIndex].nome,
+        };
+      } else {
+        listaEx[exIndex] = { ...listaEx[exIndex], [campo]: valor };
+      }
+
+      copiaDivs[divisaoAtivaIndex] = { ...divAtual, exercicios: listaEx };
+      return { ...prev, divisoes: copiaDivs };
     });
   };
 
+  const moverExercicioNaDivisao = (exIndex, direcao) => {
+    const destino = exIndex + direcao;
+    setForm((prev) => {
+      const copiaDivs = [...prev.divisoes];
+      const divAtual = copiaDivs[divisaoAtivaIndex];
+      const listaEx = [...divAtual.exercicios];
+
+      if (destino < 0 || destino >= listaEx.length) return prev;
+      const [removido] = listaEx.splice(exIndex, 1);
+      listaEx.splice(destino, 0, removido);
+
+      copiaDivs[divisaoAtivaIndex] = {
+        ...divAtual,
+        exercicios: listaEx.map((ex, i) => ({ ...ex, ordem: i + 1 })),
+      };
+      return { ...prev, divisoes: copiaDivs };
+    });
+  };
+
+  const removerExercicioNaDivisao = (exIndex) => {
+    setForm((prev) => {
+      const copiaDivs = [...prev.divisoes];
+      const divAtual = copiaDivs[divisaoAtivaIndex];
+      const filtrados = (divAtual.exercicios || []).filter((_, idx) => idx !== exIndex);
+      copiaDivs[divisaoAtivaIndex] = {
+        ...divAtual,
+        exercicios: filtrados.map((ex, i) => ({ ...ex, ordem: i + 1 })),
+      };
+      return { ...prev, divisoes: copiaDivs };
+    });
+  };
+
+  // --- ABERTURA E FECHAMENTO DE MODAIS ---
   const abrirNovoModal = () => {
     setEditandoModelo(null);
-    setForm(estadoInicialForm);
+    setEtapaForm(1);
+    setForm({
+      ...estadoInicialForm,
+      modalidade_id: modalidades[0]?.id ? String(modalidades[0].id) : '',
+      nivel_id: niveis[0]?.id ? String(niveis[0].id) : '',
+      divisoes: [criarDivisaoInicial('A', 1)],
+    });
+    setDivisaoAtivaIndex(0);
     setErro('');
     setModalAberto(true);
   };
 
   const abrirEditarModal = (modelo) => {
+    if (ehModeloGlobal(modelo) && !ehAdminGlobal) {
+      notificarErro('Modelos globais não podem ser editados pela academia. Duplique o modelo primeiro.');
+      return;
+    }
     setEditandoModelo(modelo);
-    const itens =
-      Array.isArray(modelo.exercicios) && modelo.exercicios.length > 0
-        ? reordenarItens(
-            modelo.exercicios.map((ex, idx) =>
-              criarItemExercicio(idx + 1, {
-                exercicio_id: ex.exercicio_id,
-                series: ex.series,
-                repeticoes: ex.repeticoes,
-                carga: ex.carga,
-                descanso: ex.descanso,
-                observacao: ex.observacao,
-              })
-            )
-          )
-        : [criarItemExercicio(1)];
+    setEtapaForm(1);
+
+    const divisoesTratadas =
+      Array.isArray(modelo.divisoes) && modelo.divisoes.length > 0
+        ? modelo.divisoes.map((d, i) => ({
+            id: d.id,
+            nome: d.nome || `Treino ${String.fromCharCode(65 + i)}`,
+            descricao: d.descricao || '',
+            ordem: d.ordem || i + 1,
+            exercicios:
+              Array.isArray(d.exercicios) && d.exercicios.length > 0
+                ? d.exercicios.map((ex, idxEx) =>
+                    criarItemExercicio(idxEx + 1, {
+                      id: ex.id,
+                      exercicio_id: ex.exercicio_id,
+                      nome: ex.nome,
+                      series: ex.series,
+                      repeticoes: ex.repeticoes,
+                      carga: ex.carga,
+                      descanso: ex.descanso,
+                      observacao: ex.observacao,
+                    })
+                  )
+                : [criarItemExercicio(1)],
+          }))
+        : [criarDivisaoInicial('A', 1)];
 
     setForm({
       nome: modelo.nome || '',
-      divisao: modelo.divisao || 'Treino A',
-      nivel: modelo.nivel || 'intermediario',
       descricao: modelo.descricao || '',
+      modalidade_id: modelo.modalidade_id ? String(modelo.modalidade_id) : '',
+      nivel_id: modelo.nivel_id ? String(modelo.nivel_id) : '',
+      nivel: modelo.nivel || 'intermediario',
+      objetivo: modelo.objetivo || '',
       ativo: modelo.ativo !== 0 && modelo.ativo !== false,
-      exercicios: itens,
+      divisoes: divisoesTratadas,
     });
+    setDivisaoAtivaIndex(0);
     setErro('');
     setModalAberto(true);
   };
@@ -232,17 +379,23 @@ export default function ModelosTreino() {
       return;
     }
 
-    const itensLimpos = form.exercicios
-      .filter((item) => Boolean(item.exercicio_id))
-      .map((item, idx) => ({
-        exercicio_id: Number(item.exercicio_id),
-        ordem: idx + 1,
-        series: String(item.series || '3').trim(),
-        repeticoes: String(item.repeticoes || '12').trim(),
-        carga: item.carga ? String(item.carga).trim() : null,
-        descanso: item.descanso ? String(item.descanso).trim() : null,
-        observacao: item.observacao ? String(item.observacao).trim() : null,
-      }));
+    // Normaliza divisões e exercícios antes de enviar
+    const divisoesPayload = form.divisoes.map((d, idxDiv) => ({
+      nome: d.nome && d.nome.trim() ? d.nome.trim() : `Treino ${String.fromCharCode(65 + idxDiv)}`,
+      descricao: d.descricao ? d.descricao.trim() : null,
+      ordem: idxDiv + 1,
+      exercicios: (d.exercicios || [])
+        .filter((ex) => Boolean(ex.exercicio_id))
+        .map((ex, idxEx) => ({
+          exercicio_id: Number(ex.exercicio_id),
+          ordem: idxEx + 1,
+          series: String(ex.series || '3').trim(),
+          repeticoes: String(ex.repeticoes || '12').trim(),
+          carga: ex.carga ? String(ex.carga).trim() : null,
+          descanso: ex.descanso ? String(ex.descanso).trim() : null,
+          observacao: ex.observacao ? String(ex.observacao).trim() : null,
+        })),
+    }));
 
     setSalvando(true);
     setErro('');
@@ -251,16 +404,18 @@ export default function ModelosTreino() {
     try {
       const payload = {
         nome: form.nome.trim(),
-        divisao: form.divisao.trim() || 'Treino A',
-        nivel: form.nivel,
         descricao: form.descricao.trim() || null,
+        modalidade_id: form.modalidade_id ? Number(form.modalidade_id) : null,
+        nivel_id: form.nivel_id ? Number(form.nivel_id) : null,
+        nivel: form.nivel || 'intermediario',
+        objetivo: form.objetivo.trim() || null,
         ativo: form.ativo ? 1 : 0,
-        exercicios: itensLimpos,
+        divisoes: divisoesPayload,
       };
 
       if (editandoModelo) {
         await api.put(`/modelos-treino/${editandoModelo.id}`, payload);
-        notificarSucesso('Modelo de treino atualizado com sucesso!');
+        notificarSucesso('Modelo de treino atualizado com sucesso! Alunos vinculados agora verão as atualizações.');
       } else {
         await api.post('/modelos-treino', payload);
         notificarSucesso('Modelo de treino criado com sucesso!');
@@ -268,7 +423,6 @@ export default function ModelosTreino() {
 
       setModalAberto(false);
       setEditandoModelo(null);
-      setForm(estadoInicialForm);
       await carregarDados();
     } catch (err) {
       console.error(err);
@@ -289,11 +443,15 @@ export default function ModelosTreino() {
       await carregarDados();
     } catch (err) {
       console.error(err);
-      notificarErro(err?.response?.data?.erro || 'Erro ao duplicar modelo de treino.');
+      notificarErro(err?.response?.data?.erro || 'Erro ao duplicar modelo.');
     }
   };
 
   const handleExcluirModelo = async (modelo) => {
+    if (ehModeloGlobal(modelo) && !ehAdminGlobal) {
+      notificarErro('Modelos globais não podem ser excluídos pela academia.');
+      return;
+    }
     if (!window.confirm(`Deseja realmente excluir o modelo "${modelo.nome}"?`)) return;
     setErro('');
     setSucesso('');
@@ -307,50 +465,9 @@ export default function ModelosTreino() {
     }
   };
 
-  const abrirModalReutilizar = (modelo) => {
-    setModeloReutilizar(modelo);
-    setAlunoReutilizarId('');
-    setDivisaoReutilizar(modelo.divisao || modelo.nome || 'Treino A');
-    setErro('');
-  };
-
-  const handleReutilizarParaAluno = async (e) => {
-    e.preventDefault();
-    if (!modeloReutilizar || !alunoReutilizarId) {
-      setErro('Selecione um aluno para aplicar este modelo.');
-      return;
-    }
-
-    setReutilizando(true);
-    setErro('');
-    setSucesso('');
-
-    try {
-      const exerciciosFormatados = (modeloReutilizar.exercicios || []).map((ex, idx) => ({
-        exercicio_id: ex.exercicio_id,
-        nome: ex.nome,
-        ordem: idx + 1,
-        series: ex.series,
-        repeticoes: ex.repeticoes,
-        carga: ex.carga || '',
-        descanso: ex.descanso || '',
-        observacao: ex.observacao || '',
-      }));
-
-      await api.post('/treinos', {
-        aluno_id: alunoReutilizarId,
-        divisao: divisaoReutilizar.trim() || modeloReutilizar.nome,
-        exercicios: exerciciosFormatados,
-      });
-
-      setModeloReutilizar(null);
-      notificarSucesso('Ficha de treino gerada para o aluno a partir do modelo!');
-    } catch (err) {
-      console.error(err);
-      setErro(err?.response?.data?.erro || 'Erro ao reutilizar modelo para o aluno.');
-    } finally {
-      setReutilizando(false);
-    }
+  const abrirDetalheModelo = (modelo) => {
+    setModeloDetalhe(modelo);
+    setDivisaoDetalheIndex(0);
   };
 
   return (
@@ -358,7 +475,7 @@ export default function ModelosTreino() {
       <div className="page-header">
         <div>
           <h2>Modelos de Treino</h2>
-          <p>Criação, edição, duplicação e reutilização de fichas-padrão para alunos</p>
+          <p>Modelos compartilhados com divisões ilimitadas, atribuição a múltiplos alunos e edição centralizada</p>
         </div>
         <div className="treinamento-acoes-header">
           <button
@@ -372,7 +489,7 @@ export default function ModelosTreino() {
         </div>
       </div>
 
-      {erro && !modalAberto && !modeloReutilizar && (
+      {erro && !modalAberto && (
         <div role="alert" className="treinamento-alerta-erro">
           {erro}
         </div>
@@ -384,6 +501,7 @@ export default function ModelosTreino() {
         </div>
       )}
 
+      {/* Indicadores */}
       <div className="treinamento-resumo-grid">
         <div className="form-card treinamento-stat-card">
           <span className="treinamento-stat-label">MODELOS CADASTRADOS</span>
@@ -396,13 +514,14 @@ export default function ModelosTreino() {
         </div>
 
         <div className="form-card treinamento-stat-card">
-          <span className="treinamento-stat-label">EXERCÍCIOS VINCULADOS</span>
+          <span className="treinamento-stat-label">ALUNOS COM MODELOS ATIVOS</span>
           <div className="treinamento-stat-valor treinamento-stat-valor--primario">
-            {resumo.totalItens}
+            {resumo.totalAlunos}
           </div>
         </div>
       </div>
 
+      {/* Filtros */}
       <div className="form-card treinamento-filtro-card">
         <div className="treinamento-grid-auto">
           <div className="treinamento-campo">
@@ -412,34 +531,57 @@ export default function ModelosTreino() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Nome, divisão ou descrição do modelo..."
+              placeholder="Nome, objetivo ou descrição do modelo..."
             />
           </div>
 
           <div className="treinamento-campo">
-            <label htmlFor="filtro-nivel">Nível</label>
+            <label htmlFor="filtro-mod">Modalidade</label>
             <select
-              id="filtro-nivel"
+              id="filtro-mod"
+              value={filtroModalidade}
+              onChange={(e) => setFiltroModalidade(e.target.value)}
+            >
+              <option value="">Todas as modalidades</option>
+              {modalidades.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="treinamento-campo">
+            <label htmlFor="filtro-niv">Nível</label>
+            <select
+              id="filtro-niv"
               value={filtroNivel}
               onChange={(e) => setFiltroNivel(e.target.value)}
             >
               <option value="">Todos os níveis</option>
-              <option value="iniciante">Iniciante</option>
-              <option value="intermediario">Intermediário</option>
-              <option value="avancado">Avançado</option>
+              {niveis.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.nome}
+                </option>
+              ))}
             </select>
           </div>
         </div>
       </div>
 
+      {/* Cards de Modelos */}
       {carregando ? (
         <div className="form-card">Carregando modelos de treino...</div>
       ) : modelosPaginados.length === 0 ? (
-        <div className="form-card">Nenhum modelo de treino encontrado.</div>
+        <div className="form-card">Nenhum modelo de treino encontrado com os filtros selecionados.</div>
       ) : (
         <div className="treinamento-cards-grid">
           {modelosPaginados.map((modelo) => {
-            const listaEx = Array.isArray(modelo.exercicios) ? modelo.exercicios : [];
+            const divisoes = Array.isArray(modelo.divisoes) ? modelo.divisoes : [];
+            const totalExercicios = divisoes.reduce(
+              (acc, d) => acc + (Array.isArray(d.exercicios) ? d.exercicios.length : 0),
+              0
+            );
 
             return (
               <div key={modelo.id} className="form-card treinamento-modelo-card">
@@ -447,70 +589,84 @@ export default function ModelosTreino() {
                   <div className="treinamento-tabela-header">
                     <h4>{modelo.nome}</h4>
                     <span className="treinamento-badge treinamento-badge--neutro">
-                      {NIVEL_LABEL[modelo.nivel] || modelo.nivel || 'Intermediário'}
+                      {modelo.nivel_nome || modelo.nivel || 'Intermediário'}
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                    {modelo.modalidade_nome && (
+                      <span className="treinamento-badge treinamento-badge--azul" style={{ marginRight: '0.5rem' }}>
+                        {modelo.modalidade_nome}
+                      </span>
+                    )}
+                    <span
+                      className={`treinamento-badge ${
+                        modelo.ativo === 1 ? 'treinamento-badge--sucesso' : 'treinamento-badge--neutro'
+                      }`}
+                    >
+                      {modelo.ativo === 1 ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
 
                   <p>
-                    <strong>Divisão:</strong> {modelo.divisao || 'Treino A'} •{' '}
-                    <strong>{listaEx.length}</strong>{' '}
-                    {listaEx.length === 1 ? 'exercício' : 'exercícios'}
+                    <strong>Divisões: </strong>
+                    {divisoes.length === 0
+                      ? 'Nenhuma divisão cadastrada'
+                      : divisoes.map((d) => d.nome).join(' • ')}
                   </p>
 
-                  {modelo.descricao && <p>{modelo.descricao}</p>}
+                  <p>
+                    <strong>Total de Exercícios: </strong>
+                    {totalExercicios} {totalExercicios === 1 ? 'exercício' : 'exercícios'}
+                  </p>
 
-                  {listaEx.length > 0 && (
-                    <div className="treinamento-preview-lista">
-                      {listaEx.slice(0, 4).map((ex, idx) => (
-                        <div key={ex.id || `${modelo.id}-${idx}`} className="treinamento-preview-item">
-                          <strong>
-                            {idx + 1}. {ex.nome}
-                          </strong>{' '}
-                          — {ex.series}x{ex.repeticoes}
-                          {ex.carga ? ` (${ex.carga})` : ''}
-                        </div>
-                      ))}
-                      {listaEx.length > 4 && (
-                        <div className="treinamento-preview-item">
-                          + {listaEx.length - 4} outro(s) exercício(s)
-                        </div>
-                      )}
-                    </div>
+                  <p>
+                    <strong>Alunos Vinculados: </strong>
+                    <span className="treinamento-badge treinamento-badge--teal">
+                      👥 {Number(modelo.total_alunos_vinculados || 0)} aluno(s)
+                    </span>
+                  </p>
+
+                  {modelo.objetivo && (
+                    <p>
+                      <strong>Objetivo: </strong>
+                      {modelo.objetivo}
+                    </p>
                   )}
                 </div>
 
-                <div className="treinamento-acoes-linha">
+                <div className="treinamento-acoes-linha" style={{ marginTop: '1rem' }}>
                   <button
                     type="button"
-                    onClick={() => abrirModalReutilizar(modelo)}
-                    className="treinamento-btn treinamento-btn--sucesso treinamento-btn--sm"
+                    onClick={() => abrirDetalheModelo(modelo)}
+                    className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
                   >
-                    Reutilizar
+                    Visualizar Divisões
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleDuplicarModelo(modelo)}
-                    className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
+                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
                     Duplicar
                   </button>
 
-                  <button
+                  {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
                     type="button"
                     onClick={() => abrirEditarModal(modelo)}
                     className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
                     Editar
-                  </button>
+                  </button>}
 
-                  <button
+                  {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
                     type="button"
                     onClick={() => handleExcluirModelo(modelo)}
                     className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                   >
                     Excluir
-                  </button>
+                  </button>}
                 </div>
               </div>
             );
@@ -544,11 +700,12 @@ export default function ModelosTreino() {
         </div>
       )}
 
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO ORGANIZADO EM ETAPAS */}
       {modalAberto && (
         <div role="dialog" aria-modal="true" className="treinamento-modal-backdrop">
           <div className="form-card treinamento-modal-card">
             <div className="treinamento-modal-header">
-              <h3>{editandoModelo ? 'Editar Modelo de Treino' : 'Novo Modelo de Treino'}</h3>
+              <h3>{editandoModelo ? `Editar Modelo: ${editandoModelo.nome}` : 'Novo Modelo de Treino'}</h3>
               <button
                 type="button"
                 onClick={fecharModal}
@@ -558,254 +715,488 @@ export default function ModelosTreino() {
               </button>
             </div>
 
+            {/* Aviso de modelo compartilhado se houver alunos atrelados */}
+            {editandoModelo && Number(editandoModelo.total_alunos_vinculados || 0) > 0 && (
+              <div
+                style={{
+                  background: '#fef3c7',
+                  border: '1px solid #f59e0b',
+                  color: '#92400e',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  marginBottom: '1rem',
+                  fontSize: '0.9rem',
+                }}
+              >
+                ⚠️ <strong>Atenção (Modelo Compartilhado):</strong> Este modelo possui{' '}
+                <strong>{editandoModelo.total_alunos_vinculados} aluno(s)</strong> vinculado(s). Quaisquer alterações
+                feitas nas divisões ou exercícios refletirão em tempo real para as fichas de todos esses alunos.
+              </div>
+            )}
+
             {erro && <div className="treinamento-alerta-erro">{erro}</div>}
 
-            <form onSubmit={handleSalvarModelo} className="treinamento-grid-auto">
-              <div className="treinamento-campo">
-                <label htmlFor="nome-modelo">Nome do Modelo *</label>
-                <input
-                  id="nome-modelo"
-                  type="text"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Ex: Adaptação Iniciante - Full Body"
-                  required
-                />
-              </div>
+            {/* Seletor de Etapas */}
+            <div className="treinamento-acoes-linha" style={{ marginBottom: '1.25rem', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setEtapaForm(1)}
+                className={`treinamento-btn ${
+                  etapaForm === 1 ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
+                }`}
+              >
+                1. Informações Gerais
+              </button>
+              <button
+                type="button"
+                onClick={() => setEtapaForm(2)}
+                className={`treinamento-btn ${
+                  etapaForm === 2 ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
+                }`}
+              >
+                2. Divisões & Exercícios ({form.divisoes.length})
+              </button>
+            </div>
 
-              <div className="treinamento-campo">
-                <label htmlFor="div-modelo">Divisão Padrão</label>
-                <input
-                  id="div-modelo"
-                  type="text"
-                  value={form.divisao}
-                  onChange={(e) => setForm({ ...form, divisao: e.target.value })}
-                  placeholder="Ex: Treino A"
-                />
-              </div>
+            <form onSubmit={handleSalvarModelo}>
+              {/* ETAPA 1: INFORMAÇÕES GERAIS */}
+              {etapaForm === 1 && (
+                <div className="treinamento-grid-auto">
+                  <div className="treinamento-campo">
+                    <label htmlFor="nome-modelo">Nome do Modelo *</label>
+                    <input
+                      id="nome-modelo"
+                      type="text"
+                      value={form.nome}
+                      onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                      placeholder="Ex: Treino ABC — Hipertrofia Clássica"
+                      required
+                    />
+                  </div>
 
-              <div className="treinamento-campo">
-                <label htmlFor="nivel-modelo">Nível</label>
-                <select
-                  id="nivel-modelo"
-                  value={form.nivel}
-                  onChange={(e) => setForm({ ...form, nivel: e.target.value })}
-                >
-                  <option value="iniciante">Iniciante</option>
-                  <option value="intermediario">Intermediário</option>
-                  <option value="avancado">Avançado</option>
-                </select>
-              </div>
+                  <div className="treinamento-campo">
+                    <label htmlFor="mod-modelo">Modalidade</label>
+                    <select
+                      id="mod-modelo"
+                      value={form.modalidade_id}
+                      onChange={(e) => setForm({ ...form, modalidade_id: e.target.value })}
+                    >
+                      <option value="">-- Selecione uma modalidade --</option>
+                      {modalidades.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="treinamento-campo">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={form.ativo}
-                    onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-                  />{' '}
-                  Modelo ativo
-                </label>
-              </div>
+                  <div className="treinamento-campo">
+                    <label htmlFor="niv-modelo">Nível de Dificuldade</label>
+                    <select
+                      id="niv-modelo"
+                      value={form.nivel_id}
+                      onChange={(e) => {
+                        const nivObj = niveis.find((n) => String(n.id) === e.target.value);
+                        setForm({
+                          ...form,
+                          nivel_id: e.target.value,
+                          nivel: nivObj?.slug || form.nivel,
+                        });
+                      }}
+                    >
+                      <option value="">-- Selecione um nível --</option>
+                      {niveis.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {n.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="treinamento-campo">
-                <label htmlFor="desc-modelo">Descrição</label>
-                <input
-                  id="desc-modelo"
-                  type="text"
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Objetivo do modelo, frequência semanal recomendada..."
-                />
-              </div>
+                  <div className="treinamento-campo">
+                    <label htmlFor="obj-modelo">Objetivo</label>
+                    <input
+                      id="obj-modelo"
+                      type="text"
+                      value={form.objetivo}
+                      onChange={(e) => setForm({ ...form, objetivo: e.target.value })}
+                      placeholder="Ex: Ganho de massa muscular, queima calórica, mobilidade..."
+                    />
+                  </div>
 
-              <div className="treinamento-campo">
-                <div className="treinamento-item-topo">
-                  <strong>Exercícios do Modelo</strong>
-                  <button
-                    type="button"
-                    onClick={adicionarExercicioAoForm}
-                    className="treinamento-btn treinamento-btn--primario treinamento-btn--sm"
-                  >
-                    + Adicionar Exercício
-                  </button>
+                  <div className="treinamento-campo">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={form.ativo}
+                        onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
+                      />{' '}
+                      Modelo ativo para novas atribuições
+                    </label>
+                  </div>
+
+                  <div className="treinamento-campo">
+                    <label htmlFor="desc-modelo">Descrição do Modelo</label>
+                    <textarea
+                      id="desc-modelo"
+                      rows={3}
+                      value={form.descricao}
+                      onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                      placeholder="Diretrizes do modelo, frequência semanal recomendada e observações..."
+                    />
+                  </div>
+
+                  <div className="treinamento-modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setEtapaForm(2)}
+                      className="treinamento-btn treinamento-btn--primario"
+                    >
+                      Avançar para Divisões e Exercícios →
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                {form.exercicios.map((item, idx) => (
-                  <div key={idx} className="treinamento-item-box">
-                    <div className="treinamento-item-topo">
-                      <strong>#{idx + 1}</strong>
-                      <div className="treinamento-acoes-linha">
+              {/* ETAPA 2: DIVISÕES & EXERCÍCIOS */}
+              {etapaForm === 2 && (
+                <div>
+                  {/* Seletor de Divisões em Abas */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      marginBottom: '1rem',
+                      borderBottom: '1px solid #e5e7eb',
+                      paddingBottom: '0.75rem',
+                    }}
+                  >
+                    {form.divisoes.map((div, idx) => (
+                      <button
+                        key={div.id || idx}
+                        type="button"
+                        onClick={() => setDivisaoAtivaIndex(idx)}
+                        className={`treinamento-btn ${
+                          divisaoAtivaIndex === idx
+                            ? 'treinamento-btn--escuro'
+                            : 'treinamento-btn--neutro'
+                        } treinamento-btn--sm`}
+                      >
+                        {div.nome || `Treino ${String.fromCharCode(65 + idx)}`} ({div.exercicios?.length || 0})
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={adicionarDivisao}
+                      className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
+                    >
+                      + Nova Divisão
+                    </button>
+                  </div>
+
+                  {divisaoAtual && (
+                    <div className="form-card" style={{ background: '#f9fafb', marginBottom: '1.25rem' }}>
+                      <div className="treinamento-grid-auto" style={{ marginBottom: '1rem' }}>
+                        <div className="treinamento-campo">
+                          <label>Nome da Divisão *</label>
+                          <input
+                            type="text"
+                            value={divisaoAtual.nome}
+                            onChange={(e) => atualizarDivisaoAtual('nome', e.target.value)}
+                            placeholder="Ex: Treino A — Peito e Tríceps"
+                            required
+                          />
+                        </div>
+
+                        <div className="treinamento-campo">
+                          <label>Descrição da Divisão</label>
+                          <input
+                            type="text"
+                            value={divisaoAtual.descricao}
+                            onChange={(e) => atualizarDivisaoAtual('descricao', e.target.value)}
+                            placeholder="Foco muscular ou orientações específicas..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="treinamento-acoes-linha" style={{ marginBottom: '1rem' }}>
                         <button
                           type="button"
-                          disabled={idx === 0}
-                          onClick={() => moverItemExercicio(idx, -1)}
-                          title="Subir"
+                          onClick={duplicarDivisaoAtual}
                           className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                         >
-                          ↑
+                          📋 Duplicar esta Divisão
                         </button>
-                        <button
-                          type="button"
-                          disabled={idx === form.exercicios.length - 1}
-                          onClick={() => moverItemExercicio(idx, 1)}
-                          title="Descer"
-                          className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-                        >
-                          ↓
-                        </button>
-                        {form.exercicios.length > 1 && (
+                        {form.divisoes.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => removerItemExercicio(idx)}
+                            onClick={removerDivisaoAtual}
                             className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                           >
-                            Remover
+                            🗑️ Excluir esta Divisão
                           </button>
                         )}
                       </div>
+
+                      {/* Biblioteca rápida de exercícios */}
+                      <div className="treinamento-biblioteca-box" style={{ marginBottom: '1.25rem' }}>
+                        <div className="treinamento-biblioteca-topo">
+                          <strong>Adicionar da Biblioteca de Exercícios</strong>
+                          <input
+                            type="text"
+                            value={buscaExercicioBib}
+                            onChange={(e) => setBuscaExercicioBib(e.target.value)}
+                            placeholder="Filtrar por nome ou equipamento..."
+                            className="treinamento-biblioteca-busca"
+                          />
+                        </div>
+
+                        <div className="treinamento-chips-wrap">
+                          {exerciciosBibFiltrados.map((ex) => (
+                            <button
+                              key={ex.id}
+                              type="button"
+                              onClick={() => adicionarExercicioNaDivisao(ex)}
+                              className="treinamento-chip treinamento-chip--ativo-azul"
+                            >
+                              + {ex.nome}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Lista de Exercícios da Divisão */}
+                      <div className="exercicios-container">
+                        <div className="treinamento-tabela-header">
+                          <h4>Exercícios de {divisaoAtual.nome}</h4>
+                          <button
+                            type="button"
+                            onClick={() => adicionarExercicioNaDivisao(null)}
+                            className="treinamento-btn treinamento-btn--primario treinamento-btn--sm"
+                          >
+                            + Exercício Manual
+                          </button>
+                        </div>
+
+                        {(!divisaoAtual.exercicios || divisaoAtual.exercicios.length === 0) ? (
+                          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                            Nenhum exercício adicionado a esta divisão ainda. Clique em um dos exercícios acima ou em "+ Exercício Manual".
+                          </p>
+                        ) : (
+                          divisaoAtual.exercicios.map((ex, exIdx) => (
+                            <div key={ex.id || exIdx} className="treinamento-item-box">
+                              <div className="treinamento-item-topo">
+                                <strong>#{exIdx + 1} {ex.nome ? `— ${ex.nome}` : ''}</strong>
+                                <div className="treinamento-acoes-linha">
+                                  <button
+                                    type="button"
+                                    disabled={exIdx === 0}
+                                    onClick={() => moverExercicioNaDivisao(exIdx, -1)}
+                                    title="Mover para cima"
+                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={exIdx === divisaoAtual.exercicios.length - 1}
+                                    onClick={() => moverExercicioNaDivisao(exIdx, 1)}
+                                    title="Mover para baixo"
+                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
+                                  >
+                                    ↓
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removerExercicioNaDivisao(exIdx)}
+                                    className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="treinamento-item-campos">
+                                <select
+                                  value={ex.exercicio_id}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'exercicio_id', e.target.value)}
+                                  required
+                                >
+                                  <option value="">-- Selecione o exercício --</option>
+                                  {exerciciosCatalogo.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                      {cat.nome} {cat.equipamento ? `(${cat.equipamento})` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="text"
+                                  placeholder="Séries (ex: 3)"
+                                  value={ex.series}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'series', e.target.value)}
+                                />
+
+                                <input
+                                  type="text"
+                                  placeholder="Repetições (ex: 10-12)"
+                                  value={ex.repeticoes}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'repeticoes', e.target.value)}
+                                />
+
+                                <input
+                                  type="text"
+                                  placeholder="Carga Sugerida (ex: 20kg)"
+                                  value={ex.carga}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'carga', e.target.value)}
+                                />
+
+                                <input
+                                  type="text"
+                                  placeholder="Descanso (ex: 60s)"
+                                  value={ex.descanso}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'descanso', e.target.value)}
+                                />
+
+                                <input
+                                  type="text"
+                                  placeholder="Observação técnica"
+                                  value={ex.observacao}
+                                  onChange={(e) => atualizarExercicioNaDivisao(exIdx, 'observacao', e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
+                  )}
 
-                    <div className="treinamento-item-campos">
-                      <select
-                        value={item.exercicio_id}
-                        onChange={(e) => atualizarItemExercicio(idx, 'exercicio_id', e.target.value)}
-                      >
-                        <option value="">-- Selecione um exercício --</option>
-                        {exerciciosCatalogo.map((ex) => (
-                          <option key={ex.id} value={ex.id}>
-                            {ex.nome} {ex.equipamento ? `(${ex.equipamento})` : ''}
-                          </option>
-                        ))}
-                      </select>
-
-                      <input
-                        type="text"
-                        placeholder="Séries"
-                        value={item.series}
-                        onChange={(e) => atualizarItemExercicio(idx, 'series', e.target.value)}
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="Repetições"
-                        value={item.repeticoes}
-                        onChange={(e) => atualizarItemExercicio(idx, 'repeticoes', e.target.value)}
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="Carga (ex: 20kg)"
-                        value={item.carga}
-                        onChange={(e) => atualizarItemExercicio(idx, 'carga', e.target.value)}
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="Descanso (ex: 60s)"
-                        value={item.descanso}
-                        onChange={(e) => atualizarItemExercicio(idx, 'descanso', e.target.value)}
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="Observação"
-                        value={item.observacao}
-                        onChange={(e) => atualizarItemExercicio(idx, 'observacao', e.target.value)}
-                      />
-                    </div>
+                  <div className="treinamento-modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setEtapaForm(1)}
+                      className="treinamento-btn treinamento-btn--neutro"
+                    >
+                      ← Voltar para Informações Gerais
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={salvando}
+                      className="treinamento-btn treinamento-btn--escuro"
+                    >
+                      {salvando ? 'Salvando Modelo...' : 'Salvar Modelo de Treino Completo'}
+                    </button>
                   </div>
-                ))}
-              </div>
-
-              <div className="treinamento-modal-footer">
-                <button
-                  type="button"
-                  onClick={fecharModal}
-                  className="treinamento-btn treinamento-btn--neutro"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvando}
-                  className="treinamento-btn treinamento-btn--escuro"
-                >
-                  {salvando ? 'Salvando...' : 'Salvar Modelo'}
-                </button>
-              </div>
+                </div>
+              )}
             </form>
           </div>
         </div>
       )}
 
-      {modeloReutilizar && (
+      {/* MODAL DE DETALHES DO MODELO */}
+      {modeloDetalhe && (
         <div role="dialog" aria-modal="true" className="treinamento-modal-backdrop">
-          <div className="form-card treinamento-modal-card treinamento-modal-card--sm">
+          <div className="form-card treinamento-modal-card">
             <div className="treinamento-modal-header">
-              <h3>Reutilizar Modelo: {modeloReutilizar.nome}</h3>
+              <div>
+                <h3>{modeloDetalhe.nome}</h3>
+                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.85rem' }}>
+                  {modeloDetalhe.modalidade_nome ? `${modeloDetalhe.modalidade_nome} • ` : ''}
+                  {modeloDetalhe.nivel_nome || modeloDetalhe.nivel || 'Intermediário'}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setModeloReutilizar(null)}
+                onClick={() => setModeloDetalhe(null)}
                 className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
               >
                 ✕
               </button>
             </div>
 
-            {erro && <div className="treinamento-alerta-erro">{erro}</div>}
+            {modeloDetalhe.descricao && (
+              <p style={{ marginTop: '0.5rem', marginBottom: '1rem', color: '#4b5563' }}>
+                {modeloDetalhe.descricao}
+              </p>
+            )}
 
-            <form onSubmit={handleReutilizarParaAluno} className="treinamento-grid-auto">
-              <div className="treinamento-campo">
-                <label>Selecione o Aluno *</label>
-                <select
-                  value={alunoReutilizarId}
-                  onChange={(e) => setAlunoReutilizarId(e.target.value)}
-                  required
+            {/* Abas das Divisões */}
+            {(!modeloDetalhe.divisoes || modeloDetalhe.divisoes.length === 0) ? (
+              <p>Nenhuma divisão configurada neste modelo.</p>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                    marginBottom: '1rem',
+                    borderBottom: '1px solid #e5e7eb',
+                    paddingBottom: '0.5rem',
+                  }}
                 >
-                  <option value="">-- Escolha um aluno --</option>
-                  {alunos.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nome || a.name}
-                    </option>
+                  {modeloDetalhe.divisoes.map((d, idx) => (
+                    <button
+                      key={d.id || idx}
+                      type="button"
+                      onClick={() => setDivisaoDetalheIndex(idx)}
+                      className={`treinamento-btn ${
+                        divisaoDetalheIndex === idx
+                          ? 'treinamento-btn--escuro'
+                          : 'treinamento-btn--neutro'
+                      } treinamento-btn--sm`}
+                    >
+                      {d.nome} ({d.exercicios?.length || 0})
+                    </button>
                   ))}
-                </select>
-              </div>
+                </div>
 
-              <div className="treinamento-campo">
-                <label>Divisão da Ficha do Aluno</label>
-                <input
-                  type="text"
-                  value={divisaoReutilizar}
-                  onChange={(e) => setDivisaoReutilizar(e.target.value)}
-                  required
-                />
-              </div>
+                {modeloDetalhe.divisoes[divisaoDetalheIndex] && (
+                  <div>
+                    {modeloDetalhe.divisoes[divisaoDetalheIndex].descricao && (
+                      <p style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                        {modeloDetalhe.divisoes[divisaoDetalheIndex].descricao}
+                      </p>
+                    )}
 
-              <div className="treinamento-modal-footer">
-                <button
-                  type="button"
-                  onClick={() => navigate('/treinos')}
-                  className="treinamento-btn treinamento-btn--suave-azul"
-                >
-                  Ir para Treinos →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModeloReutilizar(null)}
-                  className="treinamento-btn treinamento-btn--neutro"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={reutilizando}
-                  className="treinamento-btn treinamento-btn--sucesso"
-                >
-                  {reutilizando ? 'Aplicando...' : 'Criar Ficha'}
-                </button>
+                    <div className="treinamento-preview-lista">
+                      {(modeloDetalhe.divisoes[divisaoDetalheIndex].exercicios || []).map((ex, idx) => (
+                        <div key={ex.id || idx} className="treinamento-preview-item">
+                          <div>
+                            <strong>
+                              {idx + 1}. {ex.nome}
+                            </strong>{' '}
+                            — {ex.series}x{ex.repeticoes}
+                            {ex.carga ? ` (${ex.carga})` : ''}
+                            {ex.descanso ? ` • Descanso: ${ex.descanso}` : ''}
+                          </div>
+                          {ex.observacao && (
+                            <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                              Obs: {ex.observacao}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
+            )}
+
+            <div className="treinamento-modal-footer" style={{ marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setModeloDetalhe(null)}
+                className="treinamento-btn treinamento-btn--escuro"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

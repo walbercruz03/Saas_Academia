@@ -14,6 +14,7 @@ const Exercicio = require('./models/Exercicio');
 const ModeloTreino = require('./models/ModeloTreino');
 const ExecucaoTreino = require('./models/ExecucaoTreino');
 const Financeiro = require('./models/Financeiro');
+const { executarMigracoes } = require('./migrations/runner');
 
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
@@ -28,6 +29,8 @@ const exercicioRoutes = require('./routes/exercicioRoutes');
 const modeloTreinoRoutes = require('./routes/modeloTreinoRoutes');
 const execucaoTreinoRoutes = require('./routes/execucaoTreinoRoutes');
 const financeiroRoutes = require('./routes/financeiroRoutes');
+const modalidadeRoutes = require('./routes/modalidadeRoutes');
+const nivelDificuldadeRoutes = require('./routes/nivelDificuldadeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -87,6 +90,10 @@ db.serialize(() => {
     if (err) console.error('Erro ao criar tabela movimentacoes_financeiras:', err.message);
     else console.log('Tabela movimentacoes_financeiras verificada/criada.');
   });
+
+  executarMigracoes().catch((err) => {
+    console.error('[MIGRAÇÕES] Erro ao sincronizar migrações no startup:', err.message);
+  });
 });
 
 // Rotas
@@ -103,6 +110,8 @@ app.use('/api/exercicios', exercicioRoutes);
 app.use('/api/modelos-treino', modeloTreinoRoutes);
 app.use('/api/execucoes-treino', execucaoTreinoRoutes);
 app.use('/api/financeiro', financeiroRoutes);
+app.use('/api/modalidades', modalidadeRoutes);
+app.use('/api/niveis-dificuldade', nivelDificuldadeRoutes);
 
 // Rota de saúde
 app.get('/api/health', (req, res) => {

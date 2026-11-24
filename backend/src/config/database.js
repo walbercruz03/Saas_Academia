@@ -1,12 +1,43 @@
 const { Pool } = require("pg");
+const path = require("path");
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://wcfit_admin:wcfit_senha_forte_2026@db:5432/wcfit",
-});
+const isExplicitSqlite = process.env.DB_CLIENT === "sqlite" || process.env.USE_SQLITE === "true";
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 
-pool.query("SELECT 1")
-  .then(() => console.log("Conectado ao banco de dados PostgreSQL."))
-  .catch((err) => console.error("Erro ao conectar ao PostgreSQL:", err.message));
+let useSqlite = isExplicitSqlite || !hasDatabaseUrl;
+let sqliteDb = null;
+
+function getSqliteDb() {
+  if (!sqliteDb) {
+    const sqlite3 = require("sqlite3").verbose();
+    const dbPath = path.resolve(__dirname, "..", "database.sqlite");
+    sqliteDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) console.error("Erro ao conectar ao SQLite:", err.message);
+      else console.log("Conectado ao banco de dados SQLite.");
+    });
+  }
+  return sqliteDb;
+}
+
+let pool = null;
+if (!useSqlite) {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 3000,
+  });
+
+  pool.query("SELECT 1")
+    .then(() => {
+      console.log("Conectado ao banco de dados PostgreSQL.");
+    })
+    .catch((err) => {
+      console.warn("PostgreSQL indisponível (" + err.message + "). Ativando fallback para SQLite local.");
+      useSqlite = true;
+      getSqliteDb();
+    });
+} else {
+  getSqliteDb();
+}
 
 function traduzirSql(sql) {
   let s = String(sql)
@@ -48,9 +79,23 @@ const runQueue = (fn) => { const p = fila.then(fn, fn); fila = p.catch(() => {})
 
 const db = {
   pool,
-  serialize(fn) { if (typeof fn === "function") fn(); },
+  get isSqlite() { return useSqlite; },
+  serialize(fn) {
+    if (useSqlite) {
+      getSqliteDb().serialize(fn);
+    } else {
+      if (typeof fn === "function") fn();
+    }
+  },
   run(sql, params, callback) {
     const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().run(sql, v, function (err) {
+        if (cb) cb.call(this, err);
+      });
+      return this;
+    }
+
     let q = traduzirSql(sql);
     const isIns = /^\s*INSERT\s+INTO\b/i.test(q);
     const hasRet = /\bRETURNING\b/i.test(q);
@@ -81,6 +126,10 @@ const db = {
   },
   get(sql, params, callback) {
     const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().get(sql, v, cb);
+      return this;
+    }
     runQueue(async () => {
       try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows[0]); }
       catch (err) { if (cb) cb(err, undefined); else console.error("Erro SQL (get):", err.message); }
@@ -89,6 +138,10 @@ const db = {
   },
   all(sql, params, callback) {
     const { v, cb } = args(params, callback);
+    if (useSqlite) {
+      getSqliteDb().all(sql, v, cb);
+      return this;
+    }
     runQueue(async () => {
       try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows || []); }
       catch (err) { if (cb) cb(err, []); else console.error("Erro SQL (all):", err.message); }

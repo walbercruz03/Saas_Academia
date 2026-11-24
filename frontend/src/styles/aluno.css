@@ -1,137 +1,817 @@
+
 /* ==========================================================
-   PÁGINA ALUNOS - Wc Fit (Centralizada e Responsiva)
+   WC FIT - GESTÃO DE ALUNOS
+   Layout profissional, responsivo e com suporte a tema escuro
    ========================================================== */
 
-.page-container {
-  width: 100%;
-  max-width: 1120px !important;
-  margin: 0 auto !important;
-  padding: 0 0.5rem 2.5rem;
-  box-sizing: border-box;
-}
-
-.page-header,
-.msg-erro,
-.msg-sucesso,
-.form-card,
-.tabela,
-.lista-vazia {
+.alunos-page {
   width: 100%;
   max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
+  padding: 0;
   box-sizing: border-box;
-}
-
-.form-card {
-  background: var(--bg-card, #ffffff);
-  padding: 2rem;
-  border-radius: var(--radius, 12px);
-  box-shadow: var(--shadow, 0 4px 12px rgba(15, 23, 42, 0.06));
-  margin-bottom: 2rem;
-}
-
-/* Grid do Formulário em colunas responsivas automáticas */
-.form-card form.form-grid {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 1.25rem;
-  width: 100%;
-}
-
-/* Garante label sempre acima do input/select/textarea */
-.form-grid .campo,
-.form-grid .campo-full {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 0.4rem;
-  width: 100%;
   min-width: 0;
 }
 
-.form-grid .campo label,
-.form-grid .campo-full label {
-  display: block;
-  width: 100%;
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.form-grid .campo input,
-.form-grid .campo select,
-.form-grid .campo-full textarea {
-  width: 100%;
-  max-width: 100%;
+.alunos-page *,
+.alunos-page *::before,
+.alunos-page *::after {
   box-sizing: border-box;
 }
 
-/* Campo de Anamnese ocupando a largura total das colunas */
-.form-grid .campo-full {
+/* Cabeçalho */
+
+.alunos-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 0;
+}
+
+.alunos-page .page-header h2 {
+  margin: 0;
+  color: var(--text-heading, #0f172a);
+  font-size: 1.65rem;
+  font-weight: 750;
+}
+
+.alunos-page .page-header p {
+  margin: 6px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.92rem;
+}
+
+/* Painel principal */
+
+.alunos-painel {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.alunos-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.alunos-topo h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 750;
+  color: var(--text-heading, #0f172a);
+}
+
+.alunos-topo p {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted, #64748b);
+}
+
+.alunos-btn-novo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #0878dc;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.alunos-btn-novo:hover {
+  background: #075fb0;
+  transform: translateY(-1px);
+}
+
+/* Indicadores */
+
+.alunos-indicadores {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.alunos-indicador {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 20px;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-left: 4px solid #2563eb;
+  border-radius: 12px;
+}
+
+.alunos-indicador--ativo {
+  border-left-color: #16a34a;
+}
+
+.alunos-indicador--inativo {
+  border-left-color: #f59e0b;
+}
+
+.alunos-indicador--alerta {
+  border-left-color: #dc2626;
+}
+
+.alunos-indicador span {
+  font-size: 0.83rem;
+  font-weight: 650;
+  color: var(--text-muted, #64748b);
+}
+
+.alunos-indicador strong {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-heading, #0f172a);
+}
+
+.alunos-indicador small {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* Pesquisa e filtros */
+
+.alunos-filtros {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px 170px;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.alunos-filtros > div {
+  min-width: 0;
+}
+
+.alunos-filtros label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.84rem;
+  font-weight: 650;
+  color: var(--text-body, #334155);
+}
+
+.alunos-filtros input,
+.alunos-filtros select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 45px;
+  padding: 0 13px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-body, #334155);
+  font-family: inherit;
+  font-size: 0.88rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.alunos-filtros input::placeholder {
+  color: var(--text-muted, #94a3b8);
+}
+
+.alunos-filtros input:focus,
+.alunos-filtros select:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.alunos-lista-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  font-size: 0.84rem;
+  color: var(--text-muted, #64748b);
+}
+
+.alunos-limpar {
+  padding: 5px 0;
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.alunos-limpar:hover {
+  text-decoration: underline;
+}
+
+/* Tabela */
+
+.alunos-tabela-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.alunos-page .alunos-tabela {
+  width: 100%;
+  min-width: 700px;
+  margin: 0;
+  border-collapse: collapse;
+  background: var(--bg-card, #ffffff);
+  box-shadow: none;
+}
+
+.alunos-tabela thead {
+  background: var(--bg-subtle, #f1f5f9);
+}
+
+.alunos-tabela th {
+  padding: 15px 16px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  white-space: nowrap;
+}
+
+.alunos-tabela td {
+  padding: 15px 16px;
+  font-size: 0.88rem;
+  color: var(--text-body, #334155);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  vertical-align: middle;
+}
+
+.alunos-tabela tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.alunos-tabela tbody tr:hover {
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.alunos-link-nome {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alunos-link-nome:hover {
+  text-decoration: underline;
+}
+
+/* Ações da tabela */
+
+.alunos-acoes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.alunos-acoes button {
+  padding: 8px 11px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  color: var(--text-body, #334155);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.alunos-acoes button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.alunos-acoes .alunos-acao-ficha {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.alunos-acoes .alunos-acao-excluir {
+  color: #dc2626;
+}
+
+.alunos-acoes .alunos-acao-excluir:hover {
+  color: #b91c1c;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.05);
+}
+
+/* Lista vazia */
+
+.alunos-estado-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 28px;
+  text-align: center;
+  border: 1px dashed var(--border, #cbd5e1);
+  border-radius: 12px;
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.alunos-estado-vazio strong {
+  color: var(--text-heading, #0f172a);
+}
+
+.alunos-estado-vazio p {
+  margin: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.88rem;
+}
+
+.alunos-vazio-icone {
+  font-size: 2.2rem;
+  color: #94a3b8;
+}
+
+/* Paginação */
+
+.alunos-rodape-lista {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.84rem;
+}
+
+.alunos-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.alunos-paginacao button {
+  padding: 9px 13px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-body, #334155);
+  font-family: inherit;
+  font-size: 0.83rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.alunos-paginacao button:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.alunos-paginacao button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Formulário */
+
+.alunos-page .form-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 26px;
+  margin-bottom: 26px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.alunos-formulario {
+  scroll-margin-top: 24px;
+}
+
+.alunos-form-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.alunos-form-titulo h3 {
+  margin: 0;
+  color: var(--text-heading, #0f172a);
+  font-size: 1.3rem;
+}
+
+.alunos-form-titulo p {
+  margin: 6px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.86rem;
+}
+
+.alunos-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.alunos-page .form-grid .campo,
+.alunos-page .form-grid .campo-full {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+}
+
+.alunos-page .form-grid .campo-full {
   grid-column: 1 / -1;
 }
 
-.form-grid .campo-full textarea {
+.alunos-page .form-grid label {
+  display: block;
+  margin: 0;
+  color: var(--text-body, #334155);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.alunos-page .form-grid input:not([type="checkbox"]),
+.alunos-page .form-grid select,
+.alunos-page .form-grid textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 9px;
+  padding: 11px 13px;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-body, #334155);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.alunos-page .form-grid input:not([type="checkbox"]),
+.alunos-page .form-grid select {
+  min-height: 44px;
+}
+
+.alunos-page .form-grid textarea {
   min-height: 110px;
   resize: vertical;
 }
 
-/* Grupo de botões ocupando toda a linha inferior */
-.form-card .btn-grupo {
+.alunos-page .form-grid input:focus,
+.alunos-page .form-grid select:focus,
+.alunos-page .form-grid textarea:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+/* Modelos de treinamento */
+
+.aluno-modelos-secao {
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 2px dashed var(--border, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  min-width: 0;
+}
+
+.aluno-modelos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.aluno-modelos-header h4 {
+  margin: 0;
+  color: var(--text-heading, #0f172a);
+  font-size: 1.08rem;
+}
+
+.aluno-modelos-header p {
+  margin: 7px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.aluno-modelos-vinculados-box {
+  padding: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.aluno-modelos-vinculados-titulo {
+  margin-bottom: 12px;
+  color: var(--text-body, #334155);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.aluno-modelos-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, 240px), 1fr)
+  );
+  gap: 12px;
+  width: 100%;
+}
+
+.aluno-modelo-selecionado-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-card, #ffffff);
+}
+
+.aluno-modelo-selecionado-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.aluno-modelo-nome {
+  color: var(--text-heading, #0f172a);
+  font-size: 0.87rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.aluno-modelo-meta {
+  margin-top: 6px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aluno-modelos-filtros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.aluno-modelos-lista-box {
+  width: 100%;
+  max-height: 300px;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.aluno-modelo-opcao-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--bg-card, #ffffff);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.aluno-modelo-opcao-card:hover {
+  border-color: #60a5fa;
+}
+
+.aluno-modelo-opcao-card.ativo {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.aluno-modelo-opcao-card.ativo .aluno-modelo-nome {
+  color: #1d4ed8;
+}
+
+.aluno-modelo-opcao-card input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.aluno-modelos-dica {
+  font-size: 0.79rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
+/* Botões do formulário */
+
+.alunos-page .form-card .btn-grupo {
   grid-column: 1 / -1;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 0.85rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 22px;
   border-top: 1px solid var(--border, #e2e8f0);
-  width: 100%;
 }
 
-/* Título da listagem alinhado com o container centralizado */
-.page-container > h3 {
-  max-width: 100%;
-  margin: 2rem auto 1rem;
+.alunos-page .btn-grupo button {
+  min-height: 43px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-/* Tabela de listagem ocupando largura total do container */
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--bg-card, #ffffff);
-  border-radius: var(--radius, 12px);
-  overflow: hidden;
-  box-shadow: var(--shadow, 0 4px 12px rgba(15, 23, 42, 0.06));
-  margin-top: 0.75rem;
+.alunos-page .btn-grupo button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* Responsividade Mobile */
+/* Tema escuro */
+
+[data-theme="dark"] .alunos-page .alunos-painel,
+[data-theme="dark"] .alunos-page .form-card {
+  background: var(--bg-card, #111e32);
+}
+
+[data-theme="dark"] .alunos-indicador,
+[data-theme="dark"] .alunos-estado-vazio,
+[data-theme="dark"] .aluno-modelos-lista-box,
+[data-theme="dark"] .aluno-modelos-vinculados-box {
+  background: var(--bg-subtle, #17263d);
+}
+
+[data-theme="dark"] .aluno-modelo-opcao-card.ativo {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+}
+
+[data-theme="dark"] .aluno-modelo-opcao-card.ativo .aluno-modelo-nome {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .alunos-link-nome,
+[data-theme="dark"] .alunos-acao-ficha {
+  color: #93c5fd;
+}
+
+/* Responsividade */
+
+@media (max-width: 1200px) {
+  .alunos-indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alunos-filtros {
+    grid-template-columns: minmax(0, 1fr) 180px;
+  }
+
+  .alunos-filtros > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 768px) {
-  .page-container {
-    padding: 0 0.25rem 2rem;
+  .alunos-page .page-header h2 {
+    font-size: 1.35rem;
   }
 
-  .form-card {
-    padding: 1.25rem;
+  .alunos-painel,
+  .alunos-page .form-card {
+    padding: 16px;
+    border-radius: 12px;
   }
 
-  .form-card form.form-grid {
-    grid-template-columns: 1fr !important;
-    gap: 1rem;
+  .alunos-topo {
+    align-items: stretch;
   }
 
-  .form-card .btn-grupo {
-    flex-direction: column;
-  }
-
-  .form-card .btn-grupo button {
+  .alunos-btn-novo {
     width: 100%;
   }
 
-  .tabela {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .alunos-indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .alunos-indicador {
+    padding: 14px;
+  }
+
+  .alunos-indicador strong {
+    font-size: 1.6rem;
+  }
+
+  .alunos-filtros,
+  .aluno-modelos-filtros {
+    grid-template-columns: 1fr;
+  }
+
+  .alunos-filtros > div:last-child {
+    grid-column: auto;
+  }
+
+  .alunos-page .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .alunos-page .form-grid .campo-full {
+    grid-column: auto;
+  }
+
+  .aluno-modelos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alunos-rodape-lista {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .alunos-paginacao {
+    justify-content: center;
+  }
+
+  .alunos-page .form-card .btn-grupo {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .alunos-page .btn-grupo button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .alunos-indicadores {
+    grid-template-columns: 1fr;
+  }
+
+  .alunos-paginacao {
+    gap: 8px;
+  }
+
+  .alunos-paginacao button {
+    padding: 8px 10px;
   }
 }

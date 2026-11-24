@@ -4,7 +4,9 @@ const db = require('../config/database');
 
 const checkinController = {
   listar(req, res) {
-    Checkin.listar((err, checkins) => {
+    const { academia_id } = req.query;
+
+    Checkin.listar({ academia_id }, (err, checkins) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao listar check-ins.' });
       res.json(checkins);
     });
@@ -35,7 +37,12 @@ const checkinController = {
       if (err) return res.status(500).json({ mensagem: 'Erro ao verificar aluno.' });
       if (!aluno) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
 
-      Checkin.create({ aluno_id, status, observacoes }, (err, result) => {
+      // Verify academia ownership
+      if (aluno.academia_id !== req.usuario.academia_id) {
+        return res.status(403).json({ mensagem: 'Não é permitido registrar check-in para aluno de outra academia.' });
+      }
+
+      Checkin.create({ aluno_id, status, observacoes, academia_id: aluno.academia_id }, (err, result) => {
         if (err) return res.status(500).json({ mensagem: 'Erro ao registrar check-in.' });
         res.status(201).json({
           mensagem: 'Check-in realizado com sucesso.',

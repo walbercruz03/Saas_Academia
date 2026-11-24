@@ -7,6 +7,8 @@ import '../styles/plano.css';
 export default function Planos() {
   const [planos, setPlanos] = useState([]);
   const [plano, setPlano] = useState({ nome: '', descricao: '', preco: '', duracao_meses: '', status: 'ativo' });
+  const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+  const academiaId = usuario.academia_id || null;
   const [editingId, setEditingId] = useState(null);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
