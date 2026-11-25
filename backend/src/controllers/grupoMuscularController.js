@@ -2,9 +2,9 @@ const GrupoMuscular = require('../models/GrupoMuscular');
 
 const grupoMuscularController = {
   listar(req, res) {
-    const { busca = '', academia_id } = req.query;
+    const { busca = '' } = req.query;
 
-    GrupoMuscular.listar({ busca, academia_id }, (err, rows) => {
+    GrupoMuscular.listar({ busca, academia_id: req.usuario.academia_id }, (err, rows) => {
       if (err) {
         console.error('Erro ao listar grupos musculares:', err.message);
         return res.status(500).json({ erro: 'Erro ao listar grupos musculares.' });
@@ -15,7 +15,7 @@ const grupoMuscularController = {
 
   buscarPorId(req, res) {
     const { id } = req.params;
-    GrupoMuscular.buscarPorId(id, (err, grupo) => {
+    GrupoMuscular.buscarPorId(id, req.usuario.academia_id, (err, grupo) => {
       if (err) {
         console.error('Erro ao buscar grupo muscular:', err.message);
         return res.status(500).json({ erro: 'Erro ao buscar grupo muscular.' });
@@ -52,7 +52,7 @@ const grupoMuscularController = {
       return res.status(400).json({ erro: 'O nome do grupo muscular é obrigatório.' });
     }
 
-    GrupoMuscular.buscarPorId(id, (buscaErr, existente) => {
+    GrupoMuscular.buscarPorId(id, req.usuario.academia_id, (buscaErr, existente) => {
       if (buscaErr) {
         console.error('Erro ao verificar grupo muscular:', buscaErr.message);
         return res.status(500).json({ erro: 'Erro ao atualizar grupo muscular.' });
@@ -81,7 +81,7 @@ const grupoMuscularController = {
 
   deletar(req, res) {
     const { id } = req.params;
-    GrupoMuscular.buscarPorId(id, (buscaErr, existente) => {
+    GrupoMuscular.buscarPorId(id, req.usuario.academia_id, (buscaErr, existente) => {
       if (buscaErr) {
         console.error('Erro ao verificar grupo muscular:', buscaErr.message);
         return res.status(500).json({ erro: 'Erro ao excluir grupo muscular.' });
@@ -95,7 +95,7 @@ const grupoMuscularController = {
         return res.status(403).json({ erro: 'Não é permitido excluir grupo muscular de outra academia.' });
       }
 
-      GrupoMuscular.deletar(id, (err) => {
+      GrupoMuscular.deletar(id, req.usuario.academia_id, (err) => {
         if (err) {
           console.error('Erro ao excluir grupo muscular:', err.message);
           return res.status(500).json({ erro: 'Erro ao excluir grupo muscular.' });

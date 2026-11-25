@@ -1,3 +1,5 @@
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -12,6 +14,7 @@ const estadoInicialForm = {
 };
 
 export default function GruposMusculares() {
+  const { usuario: usuarioAtual } = useAuth();
   const [grupos, setGrupos] = useState([]);
   const [busca, setBusca] = useState('');
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -171,7 +174,7 @@ export default function GruposMusculares() {
         <div className="treinamento-acoes-header">
           <button
             type="button"
-            onClick={abrirNovoModal}
+            disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
             + Novo Grupo Muscular
@@ -295,14 +298,14 @@ export default function GruposMusculares() {
                       <div className="treinamento-acoes-linha">
                         <button
                           type="button"
-                          onClick={() => abrirEditarModal(grupo)}
+                          disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarModal(grupo)}
                           className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleExcluir(grupo)}
+                          disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluir(grupo)}
                           className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                         >
                           Excluir

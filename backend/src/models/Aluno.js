@@ -29,26 +29,25 @@ class Aluno {
     });
   }
 
-  static listar({ academia_id }, callback) {
-    const conditions = academia_id ? `WHERE academia_id = ?` : '';
-    const params = academia_id ? [academia_id] : [];
-    const sql = `SELECT * FROM alunos ${conditions} ORDER BY criado_em DESC`;
-    db.all(sql, params, callback);
+  static listar({ academia_id, resumo }, callback) {
+    const campos = resumo ? 'id, nome, cpf, status' : '*';
+    const sql = `SELECT ${campos} FROM alunos WHERE academia_id = ? ORDER BY criado_em DESC`;
+    db.leitor().all(sql, [academia_id], callback);
   }
 
-  static findById(id, callback) {
-    const sql = `SELECT * FROM alunos WHERE id = ?`;
-    db.get(sql, [id], callback);
+  static findById(id, academiaId, callback, executor = db) {
+    const sql = `SELECT * FROM alunos WHERE id = ? AND academia_id = ?`;
+    executor.get(sql, [id, academiaId], callback);
   }
 
-  static atualizar(id, { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id }, callback) {
-    const sql = `UPDATE alunos SET nome = ?, cpf = ?, telefone = ?, email = ?, data_nascimento = ?, foto = ?, contato_emergencia = ?, anamnese = ?, status = ?, academia_id = ? WHERE id = ?`;
-    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id, id], callback);
+  static atualizar(id, { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, preservarAnamnese = false, preservarContato = false }, academiaId, callback) {
+    const sql = `UPDATE alunos SET nome = ?, cpf = ?, telefone = ?, email = ?, data_nascimento = ?, foto = ?, contato_emergencia = CASE WHEN ? THEN contato_emergencia ELSE ? END, anamnese = CASE WHEN ? THEN anamnese ELSE ? END, status = ? WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [nome, cpf, telefone, email, data_nascimento, foto, preservarContato, contato_emergencia, preservarAnamnese, anamnese, status, id, academiaId], callback);
   }
 
-  static excluir(id, callback) {
-    const sql = `DELETE FROM alunos WHERE id = ?`;
-    db.run(sql, [id], callback);
+  static excluir(id, academiaId, callback) {
+    const sql = `DELETE FROM alunos WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [id, academiaId], callback);
   }
 }
 

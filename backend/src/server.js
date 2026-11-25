@@ -1,7 +1,9 @@
 require('dotenv').config();
+require('./middlewares/authMiddleware').segredoJwt();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const logFalha = require('./utils/logFalha');
 const db = require('./config/database');
 const Usuario = require('./models/Usuario');
 const Plano = require('./models/Plano');
@@ -35,51 +37,62 @@ const nivelDificuldadeRoutes = require('./routes/nivelDificuldadeRoutes');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// A administração global usa cookie de mesma origem e fica fora do CORS das APIs comuns.
+app.use('/api/super-admin', require('./routes/superAdminRoutes'));
+app.use('/api/convites', require('./routes/conviteRoutes'));
+app.use('/api/asaas-sandbox', require('./routes/asaasSandboxRoutes'));
+app.use(cors({ origin: process.env.APP_CORS_ORIGIN || '*', exposedHeaders: ['Idempotency-Replayed'] }));
+app.get('/api/documentos-legais', (_req,res) => {
+  const documentos = require('./services/documentosLegais').aprovados();
+  res.set('Cache-Control','no-store');
+  return documentos ? res.json(documentos) : res.status(404).end();
+});
+app.use('/api/cadastro-publico', require('./routes/cadastroPublicoRoutes'));
 app.use(express.json());
+app.use('/api/configuracoes', require('./routes/configuracoesAcademiaRoutes'));
 
 // Inicializa tabelas respeitando a ordem das chaves estrangeiras
-db.serialize(() => {
+const inicializarBanco = () => db.serialize(() => {
   Usuario.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela usuarios:', err.message);
+    if (err) logFalha('Erro ao criar tabela usuarios', err);
     else console.log('Tabela usuarios verificada/criada.');
   });
   Plano.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela planos:', err.message);
+    if (err) logFalha('Erro ao criar tabela planos', err);
     else console.log('Tabela planos verificada/criada.');
   });
   Aluno.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela alunos:', err.message);
+    if (err) logFalha('Erro ao criar tabela alunos', err);
     else console.log('Tabela alunos verificada/criada.');
   });
   Matricula.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela matriculas:', err.message);
+    if (err) logFalha('Erro ao criar tabela matriculas', err);
     else console.log('Tabela matriculas verificada/criada.');
   });
   Checkin.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela checkins:', err.message);
+    if (err) logFalha('Erro ao criar tabela checkins', err);
     else console.log('Tabela checkins verificada/criada.');
   });
   Treino.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela treinos:', err.message);
+    if (err) logFalha('Erro ao criar tabela treinos', err);
     else {
       console.log('Tabela treinos verificada/criada.');
       ExecucaoTreino.criarTabela((execErr) => {
-        if (execErr) console.error('Erro ao criar tabela execucoes_treino:', execErr.message);
+        if (execErr) logFalha('Erro ao criar tabela execucoes_treino', execErr);
         else console.log('Tabela execucoes_treino verificada/criada.');
       });
     }
   });
   GrupoMuscular.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela grupos_musculares:', err.message);
+    if (err) logFalha('Erro ao criar tabela grupos_musculares', err);
     else {
       console.log('Tabela grupos_musculares verificada/criada.');
       Exercicio.criarTabela((exErr) => {
-        if (exErr) console.error('Erro ao criar tabelas exercicios / exercicio_grupos_musculares:', exErr.message);
+        if (exErr) logFalha('Erro ao criar tabelas exercicios / exercicio_grupos_musculares', exErr);
         else {
           console.log('Tabelas exercicios e exercicio_grupos_musculares verificadas/criadas.');
           ModeloTreino.criarTabela((modErr) => {
-            if (modErr) console.error('Erro ao criar tabelas modelos_treino / modelo_treino_exercicios:', modErr.message);
+            if (modErr) logFalha('Erro ao criar tabelas modelos_treino / modelo_treino_exercicios', modErr);
             else console.log('Tabelas modelos_treino e modelo_treino_exercicios verificadas/criadas.');
           });
         }
@@ -87,12 +100,12 @@ db.serialize(() => {
     }
   });
   Financeiro.criarTabela((err) => {
-    if (err) console.error('Erro ao criar tabela movimentacoes_financeiras:', err.message);
+    if (err) logFalha('Erro ao criar tabela movimentacoes_financeiras', err);
     else console.log('Tabela movimentacoes_financeiras verificada/criada.');
   });
 
   executarMigracoes().catch((err) => {
-    console.error('[MIGRAÇÕES] Erro ao sincronizar migrações no startup:', err.message);
+    logFalha('[MIGRAÇÕES] Erro ao sincronizar migrações no startup', err);
   });
 });
 
@@ -118,8 +131,30 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'online', servico: 'Wc Fit API' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Wc Fit Servidor rodando em http://localhost:${PORT}`);
+app.get('/api/ready', async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    if (db.isSqlite) {
+      await new Promise((resolve, reject) => db.get('SELECT 1', (erro) => erro ? reject(erro) : resolve()));
+    } else {
+      await db.pool.query({ text: 'SELECT 1', query_timeout: 2000 });
+    }
+    return res.json({ status: 'pronto' });
+  } catch {
+    return res.status(503).json({ status: 'indisponivel' });
+  }
+});
+
+db.pronto.then(() => {
+  inicializarBanco();
+  require('./services/asaasConciliacao').iniciarFila();
+  app.listen(PORT, () => {
+    console.log(`WC Fit Servidor rodando em http://localhost:${PORT}`);
+  });
+}).catch((err) => {
+  logFalha('Falha ao iniciar o backend', err);
+  process.exitCode = 1;
+  db.pool?.end();
 });
 
 module.exports = app;

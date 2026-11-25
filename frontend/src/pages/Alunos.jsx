@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/AuthContext';
+import { podeAcessar } from '../permissoesProfessor';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -29,11 +31,15 @@ const normalizarTexto = (valor) =>
 
 export default function Alunos() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const formularioRef = useRef(null);
 
   const [alunos, setAlunos] = useState([]);
   const [aluno, setAluno] = useState(alunoInicial);
   const [editingId, setEditingId] = useState(null);
+  const acaoAluno = editingId ? 'editar' : 'criar';
+  const editarSaude = podeAcessar(usuario,'saude','visualizar') && podeAcessar(usuario,'saude',acaoAluno);
+  const editarModelos = podeAcessar(usuario,'modelos','visualizar') && podeAcessar(usuario,'modelos',acaoAluno);
 
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -184,9 +190,13 @@ export default function Alunos() {
     const payload = {
       ...aluno,
       nome: aluno.nome.trim(),
-      modelos_ids: selectedModelosIds,
+      ...(editarModelos && { modelos_ids: selectedModelosIds }),
     };
 
+    if (!editarSaude) {
+      delete payload.anamnese;
+      delete payload.contato_emergencia;
+    }
     try {
       if (editingId) {
         await api.put(`/alunos/${editingId}`, payload);
@@ -440,7 +450,7 @@ export default function Alunos() {
           <button
             type="button"
             className="btn-salvar alunos-btn-novo"
-            onClick={abrirNovoAluno}
+            onClick={abrirNovoAluno} disabled={!podeAcessar(usuario,'alunos','criar')}
           >
             + Novo Aluno
           </button>
@@ -621,7 +631,7 @@ export default function Alunos() {
 
                         <button
                           type="button"
-                          onClick={() => editar(a)}
+                          onClick={() => editar(a)} disabled={!podeAcessar(usuario,'alunos','editar')}
                         >
                           Editar
                         </button>
@@ -629,7 +639,7 @@ export default function Alunos() {
                         <button
                           type="button"
                           className="alunos-acao-excluir"
-                          onClick={() => excluir(a.id)}
+                          onClick={() => excluir(a.id)} disabled={usuario?.cargo !== 'admin'}
                         >
                           Excluir
                         </button>
@@ -800,10 +810,10 @@ export default function Alunos() {
                 Contato de Emergência
               </label>
               <input
-                id="aluno-emergencia"
+                id="aluno-emergencia" disabled={!editarSaude}
                 name="contato_emergencia"
                 type="text"
-                value={aluno.contato_emergencia}
+                value={podeAcessar(usuario,'saude','visualizar') ? aluno.contato_emergencia : ''}
                 onChange={handleChange}
                 placeholder="Nome e telefone do responsável"
               />
@@ -814,10 +824,10 @@ export default function Alunos() {
                 Anamnese e Observações de Saúde
               </label>
               <textarea
-                id="aluno-anamnese"
+                id="aluno-anamnese" disabled={!editarSaude}
                 name="anamnese"
                 rows={4}
-                value={aluno.anamnese}
+                value={podeAcessar(usuario,'saude','visualizar') ? aluno.anamnese : ''}
                 onChange={handleChange}
                 placeholder="Histórico médico, restrições, medicamentos..."
               />

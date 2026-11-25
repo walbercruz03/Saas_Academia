@@ -1,0 +1,57 @@
+name: wcfit-homologacao
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wcfit_homolog
+      POSTGRES_DB: wcfit_homolog
+      POSTGRES_PASSWORD: ${HOMOLOG_POSTGRES_PASSWORD:?Gere uma senha exclusiva da homologação}
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, wcfit_homolog, -d, wcfit_homolog]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+  backend:
+    build:
+      context: ../backend/src
+      dockerfile: ../Dockerfile
+    image: wcfit-homologacao-backend:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://wcfit_homolog:${HOMOLOG_POSTGRES_PASSWORD}@db:5432/wcfit_homolog
+      JWT_SECRET: ${HOMOLOG_JWT_SECRET:?Gere um JWT exclusivo da homologação}
+      APP_CORS_ORIGIN: ${HOMOLOG_ORIGEM:-https://homologacao.example.invalid}
+      SUPER_ADMIN_SEM_TOTP_LOCAL: "false"
+      SUPER_ADMIN_ORIGEM_LOCAL: ""
+      CADASTRO_PUBLICO_ATIVO: ${CADASTRO_PUBLICO_ATIVO:-false}
+      CADASTRO_EMAIL_API_KEY: ${CADASTRO_EMAIL_API_KEY:-}
+      CADASTRO_EMAIL_REMETENTE: onboarding@resend.dev
+      CADASTRO_EMAIL_DESTINO_TESTE: ${CADASTRO_EMAIL_DESTINO_TESTE:-}
+      CADASTRO_TOKEN_CHAVE: ${CADASTRO_TOKEN_CHAVE:-}
+      IDEMPOTENCIA_HMAC_VERSAO: v1
+      IDEMPOTENCIA_HMAC_CHAVES: ${HOMOLOG_IDEMPOTENCIA_HMAC_CHAVES:-}
+      ASAAS_SANDBOX_ATIVO: ${ASAAS_SANDBOX_ATIVO:-false}
+      ASAAS_SANDBOX_API_KEY: ${ASAAS_SANDBOX_API_KEY:-}
+      ASAAS_SANDBOX_NAMESPACE: ${ASAAS_SANDBOX_NAMESPACE:-}
+      ASAAS_SANDBOX_WEBHOOK_TOKEN: ${ASAAS_SANDBOX_WEBHOOK_TOKEN:-}
+      ASAAS_SANDBOX_RETORNO: ${HOMOLOG_ORIGEM:-https://homologacao.example.invalid}/configuracoes/assinatura
+  frontend:
+    build:
+      context: ../frontend
+    image: wcfit-homologacao-frontend:local
+    depends_on:
+      - backend
+    volumes:
+      - ./wcfit-homologacao-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - default
+      - ingress
+    ports:
+      - "127.0.0.1::80"
+networks:
+  ingress: {}

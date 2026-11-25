@@ -74,7 +74,8 @@ const modalidadeController = {
         console.error('Erro ao atualizar modalidade:', err.message);
         return res.status(500).json({ erro: 'Erro ao atualizar modalidade.' });
       }
-      res.json(atualizado);
+      if (!atualizado) return res.status(404).json({ erro: 'Registro não encontrado.' });
+      return res.json(atualizado);
     });
   },
 
@@ -82,7 +83,7 @@ const modalidadeController = {
     const { id } = req.params;
     const academia_id = req.usuario?.academia_id ?? null;
 
-    Modalidade.deletar(id, academia_id, (err) => {
+    Modalidade.deletar(id, academia_id, (err, resultado) => {
       if (err) {
         if (err.status === 400) {
           return res.status(400).json({ erro: err.message });
@@ -90,6 +91,7 @@ const modalidadeController = {
         console.error('Erro ao excluir modalidade:', err.message);
         return res.status(500).json({ erro: 'Erro ao excluir modalidade.' });
       }
+      if (!resultado.changes) return res.status(404).json({ erro: 'Registro não encontrado.' });
       res.json({ mensagem: 'Modalidade excluída com sucesso.' });
     });
   },

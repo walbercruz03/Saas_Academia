@@ -1,0 +1,7 @@
+services:
+  backend:
+    ports: !override ["127.0.0.1:3001:3001"]
+    environment:
+      SUPER_ADMIN_SEM_TOTP_LOCAL: ${SUPER_ADMIN_SEM_TOTP_LOCAL:-true}
+  frontend:
+    ports: !override ["127.0.0.1:80:80"]

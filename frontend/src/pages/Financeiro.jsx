@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -74,8 +74,14 @@ export default function Financeiro({ abaInicial = 'venda' }) {
 
   const tipoAtual = CONFIG_TIPOS[abaInicial] ? abaInicial : 'venda';
   const configAtual = CONFIG_TIPOS[tipoAtual];
+  const armazenamentoOperacao = `wcfit:financeiro:pendente:${usuario?.academia_id}:${usuario?.id}:${tipoAtual}`;
+  const envioEmCurso = useRef(false);
+  const baixasEmCurso = useRef(new Set());
 
   const [movimentacoes, setMovimentacoes] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [temMais, setTemMais] = useState(false);
+  const [totais, setTotais] = useState({ geral: 0, pago: 0, pendente: 0 });
   const [alunos, setAlunos] = useState([]);
   const [planos, setPlanos] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState('');
@@ -102,46 +108,79 @@ export default function Financeiro({ abaInicial = 'venda' }) {
   });
 
   useEffect(() => {
+    let dadosPendentes;
+    try {
+      dadosPendentes = JSON.parse(sessionStorage.getItem(armazenamentoOperacao))?.dados;
+    } catch {
+      // O envio exige que a referência da tentativa possa ser guardada.
+    }
     setForm((prev) => ({
       ...prev,
       categoria: tipoAtual === 'pagar' ? 'despesa_operacional' : 'mensalidade',
       status: CONFIG_TIPOS[tipoAtual].statusPadrao,
       aluno_id: tipoAtual === 'pagar' ? '' : prev.aluno_id,
       plano_id: tipoAtual === 'pagar' ? '' : prev.plano_id,
+      ...(dadosPendentes && {
+        ...dadosPendentes,
+        aluno_id: dadosPendentes.aluno_id ?? '',
+        plano_id: dadosPendentes.plano_id ?? '',
+        observacoes: dadosPendentes.observacoes ?? '',
+      }),
     }));
     setFiltroStatus('');
+    setPagina(1);
     setMensagem('');
     setErro('');
-  }, [tipoAtual, location.pathname]);
+  }, [tipoAtual, location.pathname, armazenamentoOperacao]);
 
+  useEffect(() => {
+    const controle = new AbortController();
+    const config = { signal: controle.signal };
+    Promise.all([
+      api.get('/alunos', { ...config, params: { resumo: '1' } }).catch(() => ({ data: [] })),
+      api.get('/planos', config).catch(() => ({ data: [] })),
+    ]).then(([alunosRes, planosRes]) => {
+      if (controle.signal.aborted) return;
+      setAlunos(Array.isArray(alunosRes.data) ? alunosRes.data : []);
+      setPlanos(Array.isArray(planosRes.data) ? planosRes.data : []);
+    });
+    return () => controle.abort();
+  }, []);
+
+  const consultaDados = useRef(null);
+  const filtrosDados = useRef(null);
+  filtrosDados.current = { tipo: tipoAtual, pagina, ...(filtroStatus ? { status: filtroStatus } : {}),
+    ...(periodoAplicado.inicio && periodoAplicado.fim ? periodoAplicado : {}) };
   const carregarDados = useCallback(async () => {
+    consultaDados.current?.abort();
+    const controle = new AbortController();
+    consultaDados.current = controle;
     setCarregando(true);
     setErro('');
     try {
-      const [movRes, alunosRes, planosRes] = await Promise.all([
-        api.get('/financeiro', {
-          params: {
-            tipo: tipoAtual,
-            ...(filtroStatus ? { status: filtroStatus } : {}),
-          },
-        }),
-        api.get('/alunos').catch(() => ({ data: [] })),
-        api.get('/planos').catch(() => ({ data: [] })),
-      ]);
-
-      setMovimentacoes(Array.isArray(movRes.data) ? movRes.data : []);
-      setAlunos(Array.isArray(alunosRes.data) ? alunosRes.data : []);
-      setPlanos(Array.isArray(planosRes.data) ? planosRes.data : []);
-    } catch (e) {
-      setErro(e?.response?.data?.mensagem || 'Erro ao carregar movimentações financeiras.');
+      const parametros = filtrosDados.current;
+      const { data } = await api.get('/financeiro', { params: parametros, signal: controle.signal });
+      if (controle.signal.aborted) return;
+      if (!data.registros.length && parametros.pagina > 1) {
+        setPagina(parametros.pagina - 1);
+        return;
+      }
+      setMovimentacoes(data.registros);
+      setTotais(data.totais);
+      setTemMais(data.temMais);
+    } catch (erro) {
+      if (!controle.signal.aborted) {
+        setErro(erro?.response?.data?.mensagem || 'Erro ao carregar movimentações financeiras.');
+      }
     } finally {
-      setCarregando(false);
+      if (!controle.signal.aborted) setCarregando(false);
     }
-  }, [tipoAtual, filtroStatus]);
+  }, []);
 
   useEffect(() => {
     carregarDados();
-  }, [carregarDados]);
+    return () => consultaDados.current?.abort();
+  }, [carregarDados, tipoAtual, filtroStatus, pagina, periodoAplicado.inicio, periodoAplicado.fim]);
 
   const handlePlanoChange = (planoId) => {
     const planoSelecionado = planos.find((p) => String(p.id) === String(planoId));
@@ -155,12 +194,15 @@ export default function Financeiro({ abaInicial = 'venda' }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (envioEmCurso.current) return;
+    envioEmCurso.current = true;
     setSalvando(true);
     setMensagem('');
     setErro('');
 
+    let operacao;
     try {
-      await api.post('/financeiro', {
+      const dados = {
         tipo: tipoAtual,
         categoria: form.categoria,
         descricao: form.descricao,
@@ -172,7 +214,26 @@ export default function Financeiro({ abaInicial = 'venda' }) {
         status: form.status,
         data_vencimento: form.data_vencimento || hojeISO(),
         observacoes: form.observacoes || null,
-      });
+      };
+      operacao = JSON.parse(sessionStorage.getItem(armazenamentoOperacao));
+      if (operacao && JSON.stringify(operacao.dados) !== JSON.stringify(dados)) {
+        setForm((prev) => ({
+          ...prev,
+          ...operacao.dados,
+          aluno_id: operacao.dados.aluno_id ?? '',
+          plano_id: operacao.dados.plano_id ?? '',
+          observacoes: operacao.dados.observacoes ?? '',
+        }));
+        setErro('Há um envio anterior sem confirmação. Os dados foram restaurados. Clique em Salvar para consultar o resultado.');
+        return;
+      }
+      if (!operacao) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        operacao = { chave: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''), dados };
+        sessionStorage.setItem(armazenamentoOperacao, JSON.stringify(operacao));
+      }
+      await api.post('/financeiro', operacao.dados, { headers: { 'Idempotency-Key': operacao.chave } });
+      sessionStorage.removeItem(armazenamentoOperacao);
 
       setMensagem('Lançamento salvo com sucesso.');
       setForm({
@@ -189,24 +250,34 @@ export default function Financeiro({ abaInicial = 'venda' }) {
       });
       await carregarDados();
     } catch (e) {
-      setErro(e?.response?.data?.mensagem || 'Erro ao salvar lançamento.');
+      if ([400, 404].includes(e?.response?.status)) {
+        sessionStorage.removeItem(armazenamentoOperacao);
+      }
+      setErro(e?.response?.data?.mensagem || (operacao
+        ? 'O envio não foi confirmado. Clique em Salvar para repetir a mesma operação.'
+        : 'Não foi possível guardar a referência da operação neste navegador.'));
     } finally {
+      envioEmCurso.current = false;
       setSalvando(false);
     }
   };
 
   const handleBaixar = async (item) => {
+    if (baixasEmCurso.current.has(item.id)) return;
+    baixasEmCurso.current.add(item.id);
     setMensagem('');
     setErro('');
     try {
-      await api.patch(`/financeiro/${item.id}/baixar`, {
+      const resposta = await api.patch(`/financeiro/${item.id}/baixar`, {
         forma_pagamento: item.forma_pagamento || 'pix',
         parcelas: item.parcelas || 1,
       });
-      setMensagem('Pagamento confirmado com sucesso.');
+      setMensagem(resposta.data.mensagem);
       await carregarDados();
     } catch (e) {
       setErro(e?.response?.data?.mensagem || 'Erro ao confirmar pagamento.');
+    } finally {
+      baixasEmCurso.current.delete(item.id);
     }
   };
 
@@ -233,30 +304,19 @@ export default function Financeiro({ abaInicial = 'venda' }) {
       return;
     }
     setErroPeriodo('');
+    setPagina(1);
     setPeriodoAplicado({ inicio: dataInicial, fim: dataFinal });
   };
 
   const limparPeriodo = () => {
     setDataInicial('');
     setDataFinal('');
+    setPagina(1);
     setPeriodoAplicado({ inicio: '', fim: '' });
     setErroPeriodo('');
   };
 
-  // Filtragem local por vencimento, preservando o filtro de status da API.
-  const movimentacoesFiltradas = movimentacoes.filter((m) => {
-    if (!periodoAplicado.inicio || !periodoAplicado.fim) return true;
-    const data = String(m.data_vencimento || '').slice(0, 10);
-    return data >= periodoAplicado.inicio && data <= periodoAplicado.fim;
-  });
-
-  const totalGeral = movimentacoesFiltradas.reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-  const totalPago = movimentacoesFiltradas
-    .filter((m) => m.status === 'pago')
-    .reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
-  const totalPendente = movimentacoesFiltradas
-    .filter((m) => m.status === 'pendente')
-    .reduce((acc, m) => acc + (Number(m.valor) || 0), 0);
+  const { geral: totalGeral, pago: totalPago, pendente: totalPendente } = totais;
 
   return (
     <div className="fin-container">
@@ -442,7 +502,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
             aria-label="Filtrar por status"
             className="fin-filtro-select"
             value={filtroStatus}
-            onChange={(e) => setFiltroStatus(e.target.value)}
+            onChange={(e) => { setFiltroStatus(e.target.value); setPagina(1); }}
           >
             <option value="">Todos os status</option>
             <option value="pago">Pago</option>
@@ -484,7 +544,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
 
         {carregando ? (
           <div className="fin-vazio">Carregando lançamentos...</div>
-        ) : movimentacoesFiltradas.length === 0 ? (
+        ) : movimentacoes.length === 0 ? (
           <div className="fin-vazio">Nenhum lançamento encontrado para {configAtual.titulo}.</div>
         ) : (
           <div className="fin-tabela-wrap">
@@ -501,7 +561,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
                 </tr>
               </thead>
               <tbody>
-                {movimentacoesFiltradas.map((m) => (
+                {movimentacoes.map((m) => (
                   <tr key={m.id}>
                     <td>{m.descricao}</td>
                     {tipoAtual !== 'pagar' && <td>{m.aluno_nome || '—'}</td>}
@@ -513,7 +573,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
                     </td>
                     <td>
                       <div className="fin-acoes">
-                        {m.status !== 'pago' && (
+                        {(m.status === 'pendente' || m.status === 'vencido') && (
                           <button
                             type="button"
                             className="fin-btn-acao fin-btn-baixar"
@@ -539,6 +599,13 @@ export default function Financeiro({ abaInicial = 'venda' }) {
             </table>
           </div>
         )}
+        {(pagina > 1 || temMais) && <div className="btn-grupo">
+          <button type="button" className="btn-outline" disabled={carregando || pagina <= 1}
+            onClick={() => setPagina(pagina - 1)}>Anterior</button>
+          <span>Página {pagina}</span>
+          <button type="button" className="btn-outline" disabled={carregando || !temMais}
+            onClick={() => setPagina(pagina + 1)}>Próxima</button>
+        </div>}
       </div>
     </div>
   );

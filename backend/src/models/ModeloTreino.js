@@ -54,9 +54,12 @@ const ModeloTreino = {
           e.imagem_url AS exercicio_imagem_url,
           e.video_url AS exercicio_video_url
         FROM modelo_treino_exercicios mte
+        INNER JOIN modelos_treino mt ON mt.id = mte.modelo_id
         INNER JOIN exercicios e
-          ON e.id = mte.exercicio_id
+          ON e.id = mte.exercicio_id AND e.academia_id IN (0, mt.academia_id)
         WHERE mte.modelo_id IN (${placeholders})
+          AND (mte.divisao_id IS NULL OR EXISTS (SELECT 1 FROM divisoes_treino d
+            WHERE d.id = mte.divisao_id AND d.modelo_id = mt.id))
         ORDER BY mte.ordem, mte.id
       `, ids, (exErr, itens) => {
         if (exErr) return callback(exErr);
@@ -186,6 +189,27 @@ const ModeloTreino = {
     });
   },
 
+  validarVinculos(dados, academia, divisoes, callback) {
+    const verificacoes = [
+      ['modalidades', dados.modalidade_id, '(academia_id IN (0, ?) OR academia_id IS NULL)'],
+      ['niveis_dificuldade', dados.nivel_id, '(academia_id IN (0, ?) OR academia_id IS NULL)'],
+      ['usuarios', dados.professor_id, 'academia_id = ?'],
+    ];
+    const verificar = (indice) => {
+      if (indice === verificacoes.length) {
+        return ModeloTreino.validarExercicios(academia, divisoes, [], callback);
+      }
+      const [tabela, id, escopo] = verificacoes[indice];
+      if (!id) return verificar(indice + 1);
+      db.get(`SELECT id FROM ${tabela} WHERE id = ? AND ${escopo}`, [id, academia], (err, row) => {
+        if (err) return callback(err);
+        if (!row) return callback(erro('Vínculo de treino não encontrado.', 404));
+        verificar(indice + 1);
+      });
+    };
+    verificar(0);
+  },
+
   salvarDivisoesEItens(modeloId, divisoes, callback) {
     const lista = Array.isArray(divisoes) && divisoes.length
       ? divisoes
@@ -304,7 +328,7 @@ const ModeloTreino = {
       return callback(erro('Escopo de academia obrigatório.'));
     }
 
-    const params = [];
+    const params = [academia];
     const condicoes = [];
 
     let sql = `
@@ -314,14 +338,17 @@ const ModeloTreino = {
         nd.nome AS nivel_nome,
         u.nome AS professor_nome,
         COALESCE(
-          COUNT(DISTINCT amt.aluno_id), 0
+          COUNT(DISTINCT a.id), 0
         ) AS total_alunos_vinculados
       FROM modelos_treino mt
       LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+        AND (m.academia_id IN (0, mt.academia_id) OR m.academia_id IS NULL)
       LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
-      LEFT JOIN usuarios u ON u.id = mt.professor_id
+        AND (nd.academia_id IN (0, mt.academia_id) OR nd.academia_id IS NULL)
+      LEFT JOIN usuarios u ON u.id = mt.professor_id AND u.academia_id = mt.academia_id
       LEFT JOIN aluno_modelos_treino amt
         ON amt.modelo_id = mt.id AND amt.ativo = 1
+      LEFT JOIN alunos a ON a.id = amt.aluno_id AND a.academia_id = ?
     `;
 
     if (incluirGlobais) {
@@ -380,7 +407,7 @@ const ModeloTreino = {
     });
   },
 
-  buscarPorId(id, callback) {
+  buscarPorId(id, academiaId, callback) {
     const sql = `
       SELECT
         mt.*,
@@ -388,19 +415,22 @@ const ModeloTreino = {
         nd.nome AS nivel_nome,
         u.nome AS professor_nome,
         COALESCE(
-          COUNT(DISTINCT amt.aluno_id), 0
+          COUNT(DISTINCT a.id), 0
         ) AS total_alunos_vinculados
       FROM modelos_treino mt
       LEFT JOIN modalidades m ON m.id = mt.modalidade_id
+        AND (m.academia_id IN (0, mt.academia_id) OR m.academia_id IS NULL)
       LEFT JOIN niveis_dificuldade nd ON nd.id = mt.nivel_id
-      LEFT JOIN usuarios u ON u.id = mt.professor_id
+        AND (nd.academia_id IN (0, mt.academia_id) OR nd.academia_id IS NULL)
+      LEFT JOIN usuarios u ON u.id = mt.professor_id AND u.academia_id = mt.academia_id
       LEFT JOIN aluno_modelos_treino amt
         ON amt.modelo_id = mt.id AND amt.ativo = 1
-      WHERE mt.id = ?
+      LEFT JOIN alunos a ON a.id = amt.aluno_id AND a.academia_id = ?
+      WHERE mt.id = ? AND mt.academia_id IN (0, ?)
       GROUP BY mt.id, mt.nome, m.nome, nd.nome, u.nome
     `;
 
-    db.get(sql, [id], (err, row) => {
+    db.get(sql, [academiaId, id, academiaId], (err, row) => {
       if (err) return callback(err);
       if (!row) return callback(null, null);
 
@@ -435,8 +465,8 @@ const ModeloTreino = {
           exercicios: dados.exercicios || []
         }];
 
-    ModeloTreino.validarExercicios(
-      academia, divisoes, [], validErr => {
+    ModeloTreino.validarVinculos(
+      dados, academia, divisoes, validErr => {
         if (validErr) return callback(validErr);
 
         const sql = `
@@ -477,7 +507,7 @@ const ModeloTreino = {
             novoId, divisoes, saveErr => {
               if (saveErr) return callback(saveErr);
 
-              ModeloTreino.buscarPorId(novoId, callback);
+              ModeloTreino.buscarPorId(novoId, academia, callback);
             }
           );
         });
@@ -506,8 +536,8 @@ const ModeloTreino = {
           exercicios: dados.exercicios || []
         }];
 
-    ModeloTreino.validarExercicios(
-      academia, divisoes, [], validErr => {
+    ModeloTreino.validarVinculos(
+      dados, academia, divisoes, validErr => {
         if (validErr) return callback(validErr);
 
         const sql = `
@@ -551,7 +581,7 @@ const ModeloTreino = {
           ModeloTreino.salvarDivisoesEItens(
             id, divisoes, saveErr => {
               if (saveErr) return callback(saveErr);
-              ModeloTreino.buscarPorId(id, callback);
+              ModeloTreino.buscarPorId(id, academia, callback);
             }
           );
         });
@@ -572,7 +602,7 @@ const ModeloTreino = {
       return callback(erro('Academia de destino inválida.'));
     }
 
-    ModeloTreino.buscarPorId(id, (err, original) => {
+    ModeloTreino.buscarPorId(id, academia, (err, original) => {
       if (err) return callback(err);
       if (!original) return callback(null, null);
 

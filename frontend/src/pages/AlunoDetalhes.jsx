@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/AuthContext';
+import { podeAcessar } from '../permissoesProfessor';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -29,7 +31,13 @@ const formatarDataCurta = (dataStr) => {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const formatarDataContratual = (data) => {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(data || '');
+  return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : formatarDataCurta(data);
+};
+
 export default function AlunoDetalhes() {
+  const { usuario } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -264,7 +272,7 @@ export default function AlunoDetalhes() {
         <div className="treinamento-acoes-linha" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             type="button"
-            onClick={() => setAbaAtiva('treinamento')}
+            onClick={() => setAbaAtiva('treinamento')} disabled={!podeAcessar(usuario,'modelos')}
             className={`treinamento-btn ${
               abaAtiva === 'treinamento' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
@@ -282,7 +290,7 @@ export default function AlunoDetalhes() {
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('matricula')}
+            onClick={() => setAbaAtiva('matricula')} disabled={!podeAcessar(usuario,'matriculas')}
             className={`treinamento-btn ${
               abaAtiva === 'matricula' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
@@ -291,7 +299,7 @@ export default function AlunoDetalhes() {
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('acompanhamento')}
+            onClick={() => setAbaAtiva('acompanhamento')} disabled={!podeAcessar(usuario,'execucoes')}
             className={`treinamento-btn ${
               abaAtiva === 'acompanhamento' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
@@ -300,7 +308,7 @@ export default function AlunoDetalhes() {
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('historico')}
+            onClick={() => setAbaAtiva('historico')} disabled={!podeAcessar(usuario,'execucoes')}
             className={`treinamento-btn ${
               abaAtiva === 'historico' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
@@ -311,7 +319,7 @@ export default function AlunoDetalhes() {
       </div>
 
       {/* ABA: TREINAMENTO */}
-      {abaAtiva === 'treinamento' && (
+      {abaAtiva === 'treinamento' && podeAcessar(usuario,'modelos') && (
         <div>
           <div className="treinamento-tabela-header" style={{ marginBottom: '1rem' }}>
             <div>
@@ -511,11 +519,11 @@ export default function AlunoDetalhes() {
             </div>
             <div className="campo-full">
               <label>Contato de Emergência</label>
-              <input type="text" value={aluno.contato_emergencia || 'Nenhum contato registrado'} readOnly />
+              <input type="text" value={(podeAcessar(usuario,'saude') && aluno.contato_emergencia) || 'Nenhum contato registrado'} readOnly />
             </div>
             <div className="campo-full">
               <label>Anamnese / Histórico de Saúde</label>
-              <textarea rows={3} value={aluno.anamnese || 'Nenhuma observação registrada'} readOnly />
+              <textarea rows={3} value={(podeAcessar(usuario,'saude') && aluno.anamnese) || 'Nenhuma observação registrada'} readOnly />
             </div>
           </div>
           <div className="treinamento-acoes-linha" style={{ marginTop: '1.5rem' }}>
@@ -527,7 +535,7 @@ export default function AlunoDetalhes() {
       )}
 
       {/* ABA: MATRÍCULA */}
-      {abaAtiva === 'matricula' && (
+      {abaAtiva === 'matricula' && podeAcessar(usuario,'matriculas') && (
         <div className="form-card">
           <div className="treinamento-tabela-header">
             <h3>Situação de Matrícula e Planos</h3>
@@ -558,16 +566,16 @@ export default function AlunoDetalhes() {
                       <td>
                         <strong>{mat.plano_nome || 'Plano Padrão'}</strong>
                       </td>
-                      <td>R$ {Number(mat.valor || 0).toFixed(2)}</td>
-                      <td>{formatarDataCurta(mat.data_inicio)}</td>
-                      <td>{formatarDataCurta(mat.data_fim)}</td>
+                      <td>R$ {Number(mat.valor_pago || 0).toFixed(2)}</td>
+                      <td>{formatarDataContratual(mat.data_inicio)}</td>
+                      <td>{formatarDataContratual(mat.data_vencimento)}</td>
                       <td>
                         <span
                           className={`badge ${
-                            mat.status === 'ativo' ? 'badge-ativo' : 'badge-inativo'
+                            mat.situacao_efetiva === 'vigente' ? 'badge-ativo' : 'badge-inativo'
                           }`}
                         >
-                          {mat.status || 'Ativo'}
+                          {(mat.situacao_efetiva || mat.status || '—').replaceAll('_', ' ')}
                         </span>
                       </td>
                     </tr>
@@ -580,7 +588,7 @@ export default function AlunoDetalhes() {
       )}
 
       {/* ABA: ACOMPANHAMENTO */}
-      {abaAtiva === 'acompanhamento' && (
+      {abaAtiva === 'acompanhamento' && podeAcessar(usuario,'execucoes') && (
         <div>
           <div className="treinamento-resumo-grid">
             <div className="form-card treinamento-stat-card">
@@ -649,7 +657,7 @@ export default function AlunoDetalhes() {
       )}
 
       {/* ABA: HISTÓRICO IMUTÁVEL */}
-      {abaAtiva === 'historico' && (
+      {abaAtiva === 'historico' && podeAcessar(usuario,'execucoes') && (
         <div className="form-card">
           <div className="treinamento-tabela-header">
             <h3>Histórico Imutável de Execuções</h3>

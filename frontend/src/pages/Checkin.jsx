@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { podeAcessar } from '../permissoesProfessor';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import useOperacaoPendente from '../useOperacaoPendente';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/styles.css';
 import '../styles/checkin.css';
 
@@ -26,27 +29,80 @@ export default function Checkin() {
   const [aluno, setAluno] = useState(null);
   const [buscando, setBuscando] = useState(false);
   const [checkins, setCheckins] = useState([]);
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
+  const [temMaisCheckins, setTemMaisCheckins] = useState(false);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  const consultaHistorico = useRef(null);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const checkinEmCurso = useRef(false);
+  const { pendente, enviar, encerrarLegado } = useOperacaoPendente('checkin', '/checkin');
   const [checkinCarregando, setCheckinCarregando] = useState(false);
+  const { usuario } = useAuth();
+  const academiaAdministrada = usuario?.cargo === 'admin' ? usuario.academia_id : null;
+  const [politica, setPolitica] = useState(null);
+  const [mensagemPolitica, setMensagemPolitica] = useState('');
+  const [salvandoPolitica, setSalvandoPolitica] = useState(false);
 
   useEffect(() => {
     carregarCheckins();
     carregarAlunos();
+    return () => consultaHistorico.current?.abort();
   }, []);
 
-  const carregarCheckins = async () => {
+  useEffect(() => {
+    if (!academiaAdministrada) return;
+    const controller = new AbortController();
+    setPolitica(null);
+    setMensagemPolitica('');
+    api.get('/checkin/politica-inadimplencia', { signal: controller.signal })
+      .then(({ data }) => setPolitica(data))
+      .catch((falha) => {
+        if (!controller.signal.aborted) {
+          setMensagemPolitica(falha.response?.data?.mensagem || 'Não foi possível carregar a configuração.');
+        }
+      });
+    return () => controller.abort();
+  }, [academiaAdministrada]);
+
+  const salvarPolitica = async (evento) => {
+    evento.preventDefault();
+    setSalvandoPolitica(true);
+    setMensagemPolitica('');
     try {
-      const res = await api.get('/checkin');
-      setCheckins(res.data || []);
+      const { data } = await api.put('/checkin/politica-inadimplencia', {
+        ...politica, tolerancia_dias: Number(politica.tolerancia_dias),
+      });
+      setPolitica(data);
+      setMensagemPolitica('Configuração salva.');
+    } catch (falha) {
+      setMensagemPolitica(falha.response?.data?.mensagem || 'Não foi possível salvar a configuração.');
+    } finally {
+      setSalvandoPolitica(false);
+    }
+  };
+
+  const carregarCheckins = async (pagina = 1) => {
+    consultaHistorico.current?.abort();
+    const controle = new AbortController();
+    consultaHistorico.current = controle;
+    setCarregandoHistorico(true);
+    try {
+      const { data } = await api.get('/checkin', { params: { pagina }, signal: controle.signal });
+      if (controle.signal.aborted) return;
+      setCheckins(data.registros);
+      setPaginaHistorico(data.pagina);
+      setTemMaisCheckins(data.temMais);
     } catch {
-      setErro('Erro ao carregar check-ins.');
+      if (!controle.signal.aborted) setErro('Erro ao carregar check-ins.');
+    } finally {
+      if (!controle.signal.aborted) setCarregandoHistorico(false);
     }
   };
 
   const carregarAlunos = async () => {
     try {
-      const res = await api.get('/alunos');
+      const res = await api.get('/alunos', { params: { resumo: '1' } });
       setAlunosCadastrados(Array.isArray(res.data) ? res.data : []);
     } catch {
       setAlunosCadastrados([]);
@@ -150,23 +206,25 @@ export default function Checkin() {
     }
   };
 
-  const realizarCheckin = async () => {
-    if (!aluno) return;
+  const realizarCheckin = async (reenvio = false) => {
+    if ((!aluno && !reenvio) || checkinEmCurso.current) return;
+    checkinEmCurso.current = true;
     setCheckinCarregando(true);
     setErro('');
     try {
-      await api.post('/checkin', {
+      await enviar(reenvio ? undefined : {
         aluno_id: aluno.id,
         status: 'presente',
         observacoes: 'Check-in via recepcao',
       });
-      setSucesso('Check-in realizado para ' + aluno.nome + '!');
+      setSucesso(reenvio ? 'Check-in realizado com sucesso!' : 'Check-in realizado para ' + aluno.nome + '!');
       setAluno(null);
       setTermoBusca('');
       carregarCheckins();
     } catch (err) {
-      setErro(err.response?.data?.mensagem || 'Erro ao realizar check-in.');
+      setErro(err.response?.data?.mensagem || err.message || 'Erro ao realizar check-in.');
     } finally {
+      checkinEmCurso.current = false;
       setCheckinCarregando(false);
     }
   };
@@ -180,6 +238,33 @@ export default function Checkin() {
         </div>
         <Link to="/dashboard" className="btn-voltar">← Voltar</Link>
       </div>
+
+      {academiaAdministrada && (
+        <details className="form-card">
+          <summary>Política de inadimplência</summary>
+          {politica && (
+            <form onSubmit={salvarPolitica} className="form-grid">
+              <div className="campo">
+                <label>
+                  <input type="checkbox" checked={politica.bloqueio} disabled={salvandoPolitica}
+                    onChange={(evento) => setPolitica({ ...politica, bloqueio: evento.target.checked })} />
+                  {' '}Bloquear check-in por inadimplência
+                </label>
+              </div>
+              <div className="campo">
+                <label htmlFor="tolerancia-inadimplencia">Dias de tolerância</label>
+                <input id="tolerancia-inadimplencia" type="number" min="0" max="2147483647" step="1" required
+                  value={politica.tolerancia_dias} disabled={salvandoPolitica}
+                  onChange={(evento) => setPolitica({ ...politica, tolerancia_dias: evento.target.value })} />
+              </div>
+              <div className="btn-grupo">
+                <button type="submit" className="btn-salvar" disabled={salvandoPolitica}>Salvar configuração</button>
+              </div>
+            </form>
+          )}
+          {mensagemPolitica && <p role="status">{mensagemPolitica}</p>}
+        </details>
+      )}
 
       <div className="form-card">
         <h3 style={{ marginTop: 0 }}>Buscar Aluno</h3>
@@ -225,6 +310,19 @@ export default function Checkin() {
         {erro && <div className="msg-erro" style={{ marginTop: '1rem' }}>{erro}</div>}
         {sucesso && <div className="msg-sucesso" style={{ marginTop: '1rem' }}>{sucesso}</div>}
 
+        {pendente && (
+          <div className="btn-grupo">
+            {pendente.legado ? (
+              <button type="button" className="btn-outline" disabled={checkinCarregando || !podeAcessar(usuario,'checkin','criar')} onClick={encerrarLegado}>
+                Encerrar pendência após conferir histórico
+              </button>
+            ) : (
+              <button type="button" className="btn-outline" disabled={checkinCarregando || !podeAcessar(usuario,'checkin','criar')} onClick={() => realizarCheckin(true)}>
+                Reenviar pendência
+              </button>
+            )}
+          </div>
+        )}
         {aluno && (
           <div
             className="form-card"
@@ -255,9 +353,9 @@ export default function Checkin() {
             </div>
             <div className="btn-grupo">
               <button
-                onClick={realizarCheckin}
+                onClick={() => realizarCheckin()}
                 className="btn-salvar"
-                disabled={checkinCarregando}
+                disabled={checkinCarregando || !podeAcessar(usuario,'checkin','criar')}
               >
                 {checkinCarregando ? 'Processando...' : 'Realizar Check-in'}
               </button>
@@ -267,7 +365,8 @@ export default function Checkin() {
       </div>
 
       <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: '#111827' }}>Check-ins Recentes</h3>
-      {checkins.length === 0 ? (
+      {carregandoHistorico && <p role="status">Carregando histórico…</p>}
+      {checkins.length === 0 && !carregandoHistorico ? (
         <div className="lista-vazia">Nenhum check-in registrado.</div>
       ) : (
         <table className="tabela">
@@ -293,6 +392,13 @@ export default function Checkin() {
           </tbody>
         </table>
       )}
+      {(paginaHistorico > 1 || temMaisCheckins) && <div className="btn-grupo">
+        <button type="button" className="btn-outline" disabled={carregandoHistorico || paginaHistorico <= 1}
+          onClick={() => carregarCheckins(paginaHistorico - 1)}>Anterior</button>
+        <span>Página {paginaHistorico}</span>
+        <button type="button" className="btn-outline" disabled={carregandoHistorico || !temMaisCheckins}
+          onClick={() => carregarCheckins(paginaHistorico + 1)}>Próxima</button>
+      </div>}
     </div>
   );
 }

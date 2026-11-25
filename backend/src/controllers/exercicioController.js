@@ -1,10 +1,37 @@
+const { promisify } = require('node:util');
+const db = require('../config/database');
+const buscarGrupos = promisify(db.all.bind(db));
+
+async function validarGrupos(principais, secundarios, academiaId, res) {
+  if (!Array.isArray(principais) || !Array.isArray(secundarios)) {
+    res.status(400).json({ erro: 'Informe os grupos musculares como listas.' });
+    return false;
+  }
+  const ids = [...new Set([...principais, ...secundarios].map(Number))];
+  if (!ids.length) return true;
+  if (ids.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+    res.status(400).json({ erro: 'Grupo muscular inválido.' });
+    return false;
+  }
+  try {
+    const grupos = await buscarGrupos(
+      `SELECT id FROM grupos_musculares WHERE academia_id IN (0, ?)
+       AND id IN (${ids.map(() => '?').join(',')})`, [academiaId, ...ids]
+    );
+    if (grupos.length === ids.length) return true;
+    res.status(404).json({ erro: 'Grupo muscular não encontrado.' });
+  } catch {
+    res.status(500).json({ erro: 'Erro ao validar grupos musculares.' });
+  }
+  return false;
+}
 const Exercicio = require('../models/Exercicio');
 
 const DIFICULDADES_VALIDAS = ['iniciante', 'intermediario', 'avancado'];
 
 const exercicioController = {
   listar(req, res) {
-    const { busca = '', equipamento = '', dificuldade = '', grupo_muscular_id = '', apenas_ativos = '', academia_id } = req.query;
+    const { busca = '', equipamento = '', dificuldade = '', grupo_muscular_id = '', apenas_ativos = '' } = req.query;
 
     Exercicio.listar(
       {
@@ -13,7 +40,7 @@ const exercicioController = {
         dificuldade,
         grupoMuscularId: grupo_muscular_id,
         apenasAtivos: apenas_ativos === '1' || apenas_ativos === 'true',
-        academia_id,
+        academia_id: req.usuario.academia_id,
       },
       (err, rows) => {
         if (err) {
@@ -27,7 +54,7 @@ const exercicioController = {
 
   buscarPorId(req, res) {
     const { id } = req.params;
-    Exercicio.buscarPorId(id, (err, exercicio) => {
+    Exercicio.buscarPorId(id, req.usuario.academia_id, (err, exercicio) => {
       if (err) {
         console.error('Erro ao buscar exercício:', err.message);
         return res.status(500).json({ erro: 'Erro ao buscar exercício.' });
@@ -39,7 +66,7 @@ const exercicioController = {
     });
   },
 
-  criar(req, res) {
+  async criar(req, res) {
     const {
       nome,
       descricao,
@@ -56,6 +83,8 @@ const exercicioController = {
     if (!nome || !String(nome).trim()) {
       return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
     }
+
+    if (!await validarGrupos(grupos_principais, grupos_secundarios, req.usuario.academia_id, res)) return;
 
     Exercicio.criar(
       {
@@ -81,7 +110,7 @@ const exercicioController = {
     );
   },
 
-  atualizar(req, res) {
+  async atualizar(req, res) {
     const { id } = req.params;
     const {
       nome,
@@ -100,7 +129,9 @@ const exercicioController = {
       return res.status(400).json({ erro: 'O nome do exercício é obrigatório.' });
     }
 
-    Exercicio.buscarPorId(id, (buscaErr, existente) => {
+    if (!await validarGrupos(grupos_principais, grupos_secundarios, req.usuario.academia_id, res)) return;
+
+    Exercicio.buscarPorId(id, req.usuario.academia_id, (buscaErr, existente) => {
       if (buscaErr) {
         console.error('Erro ao verificar exercício:', buscaErr.message);
         return res.status(500).json({ erro: 'Erro ao atualizar exercício.' });
@@ -111,7 +142,7 @@ const exercicioController = {
 
       // Verify academia ownership
       if (existente.academia_id !== req.usuario.academia_id) {
-        return res.status(403).json({ erro: 'Não é permitido alterar exercícios de outra academia.' });
+        return res.status(404).json({ erro: 'Exercício não encontrado.' });
       }
 
       Exercicio.atualizar(
@@ -127,12 +158,14 @@ const exercicioController = {
           ativo,
           grupos_principais,
           grupos_secundarios,
+          academia_id: req.usuario.academia_id,
         },
         (err, atualizado) => {
           if (err) {
             console.error('Erro ao atualizar exercício:', err.message);
             return res.status(500).json({ erro: 'Erro ao atualizar exercício.' });
           }
+          if (!atualizado) return res.status(404).json({ erro: 'Exercício não encontrado.' });
           return res.json(atualizado);
         }
       );
@@ -141,7 +174,7 @@ const exercicioController = {
 
   deletar(req, res) {
     const { id } = req.params;
-    Exercicio.buscarPorId(id, (buscaErr, existente) => {
+    Exercicio.buscarPorId(id, req.usuario.academia_id, (buscaErr, existente) => {
       if (buscaErr) {
         console.error('Erro ao verificar exercício:', buscaErr.message);
         return res.status(500).json({ erro: 'Erro ao excluir exercício.' });
@@ -152,10 +185,10 @@ const exercicioController = {
 
       // Verify academia ownership
       if (existente.academia_id !== req.usuario.academia_id) {
-        return res.status(403).json({ erro: 'Não é permitido excluir exercícios de outra academia.' });
+        return res.status(404).json({ erro: 'Exercício não encontrado.' });
       }
 
-      Exercicio.deletar(id, (err) => {
+      Exercicio.deletar(id, req.usuario.academia_id, (err) => {
         if (err) {
           console.error('Erro ao excluir exercício:', err.message);
           return res.status(500).json({ erro: 'Erro ao excluir exercício.' });

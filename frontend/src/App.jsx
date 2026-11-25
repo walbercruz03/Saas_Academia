@@ -1,22 +1,53 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import './styles/styles.css';
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
-import CadastroAdmin from './pages/CadastroAdmin';
-import Planos from './pages/Planos';
-import Alunos from './pages/Alunos';
-import AlunoDetalhes from './pages/AlunoDetalhes';
-import Treinos from './pages/Treinos';
-import Exercicios from './pages/Exercicios';
-import GruposMusculares from './pages/GruposMusculares';
-import ModelosTreino from './pages/ModelosTreino';
-import ConfiguracoesTreino from './pages/ConfiguracoesTreino';
-import AcompanhamentoTreinos from './pages/AcompanhamentoTreinos';
-import Checkin from './pages/Checkin';
-import Matriculas from './pages/Matriculas';
-import Dashboard from './pages/Dashboard';
-import Professores from './pages/Professores';
-import Financeiro from './pages/Financeiro';
+import { moduloPorRota, podeAcessar } from './permissoesProfessor';
 import Layout from './components/Layout';
+
+function carregarPagina(importar) {
+  const Pagina = lazy(importar);
+  return function PaginaSobDemanda(props) {
+    return <Suspense fallback={<p role="status" className="relatorio-vazio">Carregando página…</p>}>
+      <Pagina {...props} />
+    </Suspense>;
+  };
+}
+
+const SuperAdmin = carregarPagina(() => import('./pages/SuperAdmin'));
+const Planos = carregarPagina(() => import('./pages/Planos'));
+const Alunos = carregarPagina(() => import('./pages/Alunos'));
+const AlunoDetalhes = carregarPagina(() => import('./pages/AlunoDetalhes'));
+const Treinos = carregarPagina(() => import('./pages/Treinos'));
+const Exercicios = carregarPagina(() => import('./pages/Exercicios'));
+const GruposMusculares = carregarPagina(() => import('./pages/GruposMusculares'));
+const ModelosTreino = carregarPagina(() => import('./pages/ModelosTreino'));
+const ConfiguracoesAcademia = carregarPagina(() => import('./pages/ConfiguracoesAcademia'));
+const ConfiguracoesTreino = carregarPagina(() => import('./pages/ConfiguracoesTreino'));
+const AcompanhamentoTreinos = carregarPagina(() => import('./pages/AcompanhamentoTreinos'));
+const Checkin = carregarPagina(() => import('./pages/Checkin'));
+const Matriculas = carregarPagina(() => import('./pages/Matriculas'));
+const Dashboard = carregarPagina(() => import('./pages/Dashboard'));
+const Professores = carregarPagina(() => import('./pages/Professores'));
+const Financeiro = carregarPagina(() => import('./pages/Financeiro'));
+const SuperAdminPainel = carregarPagina(() => import('./pages/SuperAdminPainel'));
+const AceitarConvite = carregarPagina(() => import('./pages/AceitarConvite'));
+const CadastroAdmin = carregarPagina(() => import('./pages/CadastroAdmin'));
+const ConfirmarConta = carregarPagina(() => import('./pages/ConfirmarConta'));
+
+function VerificarModulo() {
+  const { usuario } = useAuth();
+  const { pathname } = useLocation();
+  const modulo = moduloPorRota[pathname] || (pathname.startsWith('/alunos/') ? 'alunos' : null);
+  if (usuario?.cargo === 'professor' && ['/financeiro','/professores','/configuracoes']
+    .some((rota) => pathname === rota || pathname.startsWith(rota + '/'))) {
+    return <p role="status">Este módulo é reservado ao administrador.</p>;
+  }
+  if (usuario?.cargo === 'professor' && usuario.permissoes === undefined) return <p role="status">Carregando permissões…</p>;
+  if (!podeAcessar(usuario, modulo)) return <p role="status">Você não tem acesso a este módulo.</p>;
+  return <Outlet />;
+}
 
 function App() {
   const { usuario, carregando } = useAuth();
@@ -27,15 +58,20 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/aceitar-convite" element={<AceitarConvite />} />
+      <Route path="/cadastro" element={<CadastroAdmin />} />
+      <Route path="/confirmar-conta" element={<ConfirmarConta />} />
+      <Route path="/super-admin/login" element={<SuperAdmin />} />
+      <Route path="/super-admin/:modulo?" element={<SuperAdminPainel />} />
       {!usuario ? (
         <>
           <Route path="/login" element={<Login />} />
-          <Route path="/cadastro-admin" element={<CadastroAdmin />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </>
       ) : (
         <Route element={<Layout />}>
+          <Route element={<VerificarModulo />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/planos" element={<Planos />} />
@@ -49,6 +85,7 @@ function App() {
           <Route path="/treinos/acompanhamento" element={<AcompanhamentoTreinos />} />
           <Route path="/matriculas" element={<Matriculas />} />
           <Route path="/checkin" element={<Checkin />} />
+          <Route path="/configuracoes/:secao?" element={<ConfiguracoesAcademia />} />
           <Route path="/professores" element={<Professores />} />
           <Route path="/financeiro" element={<Navigate to="/financeiro/vendas" replace />} />
           <Route path="/financeiro/vendas" element={<Financeiro abaInicial="venda" />} />
@@ -56,6 +93,7 @@ function App() {
           <Route path="/financeiro/pagar" element={<Financeiro abaInicial="pagar" />} />
           <Route path="/logout" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
         </Route>
       )}
     </Routes>

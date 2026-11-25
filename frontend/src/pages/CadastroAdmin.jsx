@@ -1,48 +1,71 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { MENSAGEM_SENHA, senhaValida } from '../politicaSenha';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api';
+import CamposCadastroAcademia, { useConsultaCep } from '../components/CamposCadastroAcademia';
 import '../styles/login.css';
 
-export default function CadastroAdmin() {
-  const [nome, setNome] = useState('');
-  const [idade, setIdade] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [email, setEmail] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState('');
-  const [sucesso, setSucesso] = useState('');
-  const [carregando, setCarregando] = useState(false);
-  const navigate = useNavigate();
+const titulos = ['Dados da academia', 'Endereço', 'Responsável'];
+const digitos = (valor) => (valor || '').replace(/\D/g, '');
+const moeda = (centavos) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErro('');
-    setSucesso('');
-    setCarregando(true);
-    try {
-      await api.post('/auth/register-admin', {
-        nome,
-        idade: parseInt(idade) || undefined,
-        cpf,
-        email_ou_matricula: email,
-        telefone,
-        senha,
+export default function CadastroAdmin() {
+  const [etapa, setEtapa] = useState(0);
+  const [dados, setDados] = useState({ tipo: 'mei' });
+  const [politicas, setPoliticas] = useState(null);
+  const [desafio, setDesafio] = useState(null);
+  const [codigo, setCodigo] = useState('');
+  const [erro, setErro] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const [concluido, setConcluido] = useState(false);
+  const emEnvio = useRef(false);
+
+  useEffect(() => {
+    const consulta = new AbortController();
+    api.get('/cadastro-publico', { signal: consulta.signal })
+      .then(({ data }) => setPoliticas(data))
+      .catch(() => {
+        if (!consulta.signal.aborted) setPoliticas(false);
       });
-      setSucesso('Administrador cadastrado com sucesso! Você já pode fazer login.');
-      setNome('');
-      setIdade('');
-      setCpf('');
-      setEmail('');
-      setTelefone('');
-      setSenha('');
-    } catch (err) {
-      setErro(
-        err.response?.data?.mensagem ||
-        'Erro ao cadastrar administrador. Tente novamente.'
-      );
+    return () => consulta.abort();
+  }, []);
+
+  const avisoCep = useConsultaCep(dados, setDados);
+
+  const enviar = async (evento) => {
+    evento.preventDefault();
+    if (emEnvio.current) return;
+    setErro('');
+    if (etapa < 2) {
+      setEtapa(etapa + 1);
+      return;
+    }
+    if (dados.senha !== dados.confirmacao) {
+      setErro('As senhas precisam coincidir.');
+      return;
+    }
+    if (!senhaValida(dados.senha)) {
+      setErro(MENSAGEM_SENHA);
+      return;
+    }
+    emEnvio.current = true;
+    setOcupado(true);
+    try {
+      if (!desafio) {
+        const { data } = await api.post('/cadastro-publico/email', { email: dados.email });
+        setDesafio(data.desafio);
+      } else {
+        const { confirmacao, ...cadastro } = dados;
+        await api.post('/cadastro-publico', { ...cadastro, desafio, codigo, ...politicas });
+        setConcluido(true);
+        setDados({});
+        setCodigo('');
+      }
+    } catch (falha) {
+      setErro(falha.response?.data?.mensagem || 'Não foi possível concluir o cadastro.');
     } finally {
-      setCarregando(false);
+      emEnvio.current = false;
+      setOcupado(false);
     }
   };
 
@@ -50,87 +73,47 @@ export default function CadastroAdmin() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <h1>Wc Fit</h1>
-          <p>Cadastro Inicial do Administrador</p>
+          <h1>Cadastre sua academia</h1>
+          <p>30 dias grátis. Depois, {moeda(politicas?.mensalidade_centavos ?? 7999)} por mês. Sem cobrança automática.</p>
         </div>
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="campo">
-            <label htmlFor="nome">Nome completo</label>
-            <input
-              id="nome"
-              type="text"
-              placeholder="João da Silva"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              required
-            />
-          </div>
-          <div className="campo">
-            <label htmlFor="idade">Idade</label>
-            <input
-              id="idade"
-              type="number"
-              placeholder="30"
-              value={idade}
-              onChange={(e) => setIdade(e.target.value)}
-              required
-            />
-          </div>
-          <div className="campo">
-            <label htmlFor="cpf">CPF</label>
-            <input
-              id="cpf"
-              type="text"
-              placeholder="123.456.789-00"
-              value={cpf}
-              onChange={(e) => setCpf(e.target.value)}
-              required
-              maxLength="14"
-            />
-          </div>
-          <div className="campo">
-            <label htmlFor="email">E-mail / Matrícula</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="wcfit@dominio.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="campo">
-            <label htmlFor="telefone">Telefone</label>
-            <input
-              id="telefone"
-              type="tel"
-              placeholder="(11) 99999-9999"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              required
-            />
-          </div>
-          <div className="campo senha">
-            <label htmlFor="senha">Senha</label>
-            <input
-              id="senha"
-              type="password"
-              placeholder="••••••••"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-            />
-          </div>
-          {erro && <div className="erro">{erro}</div>}
-          {sucesso && <div className="sucesso">{sucesso}</div>}
-          <button type="submit" className="btn-entrar" disabled={carregando}>
-            {carregando ? 'Cadastrando...' : 'Cadastrar Administrador'}
-          </button>
-        </form>
-        <div className="cadastro-link">
-          Já tem cadastro?{' '}
-          <Link to="/login">Fazer login</Link>
-        </div>
+        {concluido ? (
+          <p className="sucesso" role="status">Cadastro concluído. Você já pode entrar com seu e-mail e senha.</p>
+        ) : politicas === false ? (
+          <p className="erro" role="status">Cadastro temporariamente indisponível.</p>
+        ) : politicas && (
+          <form onSubmit={enviar} className="login-form">
+            <h2>{etapa + 1} de 3 · {titulos[etapa]}</h2>
+            <fieldset disabled={ocupado || Boolean(desafio)} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+              <CamposCadastroAcademia dados={dados} setDados={setDados} etapa={etapa} avisoCep={avisoCep} comSenha />
+              {etapa === 2 && <>
+                {politicas.aceite_comercial_obrigatorio && <label>
+                  <input type="checkbox" required checked={dados.aceite_comercial === true}
+                    onChange={(e) => setDados({ ...dados, aceite_comercial: e.target.checked })} />
+                  {' '}Aceito os 30 dias grátis e a mensalidade de {moeda(politicas.mensalidade_centavos)} após o período gratuito.
+                  A forma de pagamento será autorizada na aba Minha assinatura.
+                </label>}
+                {politicas.termos_url && <label><input type="checkbox" required checked={dados.aceite_termos === true}
+                  onChange={(e) => setDados({ ...dados, aceite_termos: e.target.checked })} /> Aceito os <a href={politicas.termos_url} target="_blank" rel="noreferrer">Termos de Uso</a>.</label>}
+                {politicas.privacidade_url && <label><input type="checkbox" required checked={dados.aceite_privacidade === true}
+                  onChange={(e) => setDados({ ...dados, aceite_privacidade: e.target.checked })} /> Aceito a <a href={politicas.privacidade_url} target="_blank" rel="noreferrer">Política de Privacidade</a>.</label>}
+              </>}
+            </fieldset>
+            {desafio && <div className="campo">
+              <label htmlFor="codigo">Código enviado ao seu e-mail</label>
+              <input id="codigo" value={codigo} onChange={(e) => setCodigo(digitos(e.target.value))} disabled={ocupado}
+                inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required />
+            </div>}
+            {erro && <p className="erro" role="alert">{erro}</p>}
+            <button type="submit" className="btn-entrar" disabled={ocupado}>
+              {ocupado ? 'Aguarde…' : desafio ? 'Confirmar cadastro' : etapa === 2 ? 'Enviar código de verificação' : 'Continuar'}
+            </button>
+            {(etapa > 0 || desafio) && <button type="button" className="btn-outline" disabled={ocupado}
+              onClick={() => { setErro(''); if (desafio) { setDesafio(null); setCodigo(''); } else setEtapa(etapa - 1); }}>
+              {desafio ? 'Voltar ou solicitar outro código' : 'Voltar'}
+            </button>}
+          </form>
+        )}
+        <div className="cadastro-link"><Link to="/login">Ir para o login</Link></div>
       </div>
     </div>
   );

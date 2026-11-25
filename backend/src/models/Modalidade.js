@@ -1,17 +1,17 @@
 const db = require('../config/database');
 
 const Modalidade = {
-  listar: ({ busca = '', apenasAtivos = false } = {}, callback) => {
-    const params = [];
+  listar: ({ busca = '', apenasAtivos = false, academia_id } = {}, callback) => {
+    const params = [academia_id, academia_id];
     let sql = `
       SELECT
         m.*,
         COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
       FROM modalidades m
-      LEFT JOIN modelos_treino mt ON mt.modalidade_id = m.id
+      LEFT JOIN modelos_treino mt ON mt.modalidade_id = m.id AND mt.academia_id = ?
     `;
 
-    const conditions = [];
+    const conditions = ["(m.academia_id IN (0, ?) OR m.academia_id IS NULL)"];
     if (busca && busca.trim()) {
       const termo = `%${busca.trim()}%`;
       conditions.push(`(LOWER(m.nome) LIKE LOWER(?) OR LOWER(COALESCE(m.descricao, '')) LIKE LOWER(?))`);
@@ -31,40 +31,41 @@ const Modalidade = {
     db.all(sql, params, callback);
   },
 
-  buscarPorId: (id, callback) => {
+  buscarPorId: (id, academiaId, callback) => {
     const sql = `
       SELECT
         m.*,
         COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
       FROM modalidades m
-      LEFT JOIN modelos_treino mt ON mt.modalidade_id = m.id
-      WHERE m.id = ?
+      LEFT JOIN modelos_treino mt ON mt.modalidade_id = m.id AND mt.academia_id = ?
+      WHERE m.id = ? AND (m.academia_id IN (0, ?) OR m.academia_id IS NULL)
       GROUP BY m.id
     `;
-    db.get(sql, [id], callback);
+    db.get(sql, [academiaId, id, academiaId], callback);
   },
 
-  criar: ({ nome, descricao = null, ativo = 1 }, callback) => {
-    const sql = `INSERT INTO modalidades (nome, descricao, ativo) VALUES (?, ?, ?)`;
-    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, ativo ? 1 : 0], function (err) {
+  criar: ({ nome, descricao = null, ativo = 1, academia_id }, callback) => {
+    const sql = `INSERT INTO modalidades (nome, descricao, ativo, academia_id) VALUES (?, ?, ?, ?)`;
+    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, ativo ? 1 : 0, academia_id], function (err) {
       if (err) return callback(err);
-      Modalidade.buscarPorId(this && this.lastID ? this.lastID : null, callback);
+      Modalidade.buscarPorId(this && this.lastID ? this.lastID : null, academia_id, callback);
     });
   },
 
-  atualizar: (id, { nome, descricao = null, ativo = 1 }, callback) => {
-    const sql = `UPDATE modalidades SET nome = ?, descricao = ?, ativo = ? WHERE id = ?`;
-    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, ativo ? 1 : 0, id], function (err) {
+  atualizar: (id, { nome, descricao = null, ativo = 1, academia_id }, callback) => {
+    const sql = `UPDATE modalidades SET nome = ?, descricao = ?, ativo = ? WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, ativo ? 1 : 0, id, academia_id], function (err) {
       if (err) return callback(err);
-      Modalidade.buscarPorId(id, callback);
+      if (!this.changes) return callback(null, null);
+      Modalidade.buscarPorId(id, academia_id, callback);
     });
   },
 
-  deletar: (id, callback) => {
+  deletar: (id, academiaId, callback) => {
     // Verifica vínculos ativos com modelos_treino
     db.get(
-      `SELECT COUNT(*) as total FROM modelos_treino WHERE modalidade_id = ?`,
-      [id],
+      `SELECT COUNT(*) as total FROM modelos_treino WHERE modalidade_id = ? AND academia_id = ?`,
+      [id, academiaId],
       (err, row) => {
         if (err) return callback(err);
         const total = Number(row?.total || 0);
@@ -76,7 +77,7 @@ const Modalidade = {
           return callback(erroVinculo);
         }
 
-        db.run(`DELETE FROM modalidades WHERE id = ?`, [id], function (delErr) {
+        db.run(`DELETE FROM modalidades WHERE id = ? AND academia_id = ?`, [id, academiaId], function (delErr) {
           if (delErr) return callback(delErr);
           callback(null, { deleted: true, changes: this?.changes || 0 });
         });

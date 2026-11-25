@@ -1,17 +1,34 @@
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../api';
+import '../styles/login.css';
+
+const academiaIndisponivel = 'O acesso à sua academia está indisponível. Entre em contato com a administração.';
 
 export default function Login() {
+  const [parametros] = useSearchParams();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [erro, setErro] = useState('');
+  const [erro, setErro] = useState(() => parametros.get('motivo') === 'academia-inativa' ? academiaIndisponivel : '');
   const [carregando, setCarregando] = useState(false);
+  const [ofertaCadastro, setOfertaCadastro] = useState(null);
+  const [documentos, setDocumentos] = useState(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const consulta = new AbortController();
+    api.get('/cadastro-publico', { signal: consulta.signal })
+      .then(({ data }) => { if (!consulta.signal.aborted) setOfertaCadastro(data); })
+      .catch(() => {});
+    api.get('/documentos-legais', { signal: consulta.signal })
+      .then(({ data }) => { if (!consulta.signal.aborted) setDocumentos(data); }).catch(() => {});
+    return () => consulta.abort();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,10 +38,10 @@ export default function Login() {
     try {
       await login(email, senha);
       navigate('/dashboard');
-    } catch {
-      setErro(
-        'Credenciais inválidas. Verifique os dados e tente novamente.'
-      );
+    } catch (falha) {
+      setErro(falha.response?.data?.codigo === 'ACADEMIA_INATIVA'
+        ? academiaIndisponivel
+        : 'Credenciais inválidas. Verifique os dados e tente novamente.');
     } finally {
       setCarregando(false);
     }
@@ -328,15 +345,16 @@ export default function Login() {
 
           </form>
 
-          {/* CADASTRO */}
-          <div className="login-footer">
-            <p>
-              Novo administrador?
-              <Link to="/cadastro-admin">
-                Cadastre-se
-              </Link>
-            </p>
-          </div>
+          {documentos && <nav className="login-footer" aria-label="Documentos legais">
+            <a href={documentos.termos_url}>Termos de Uso</a>{' · '}
+            <a href={documentos.privacidade_url}>Política de Privacidade</a>
+          </nav>}
+
+          {ofertaCadastro && <div className="login-footer">
+            <p>30 dias grátis. Depois, {(ofertaCadastro.mensalidade_centavos / 100)
+              .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês.</p>
+            <Link to="/cadastro" className="btn-outline login-cadastro-cta">Cadastrar minha academia</Link>
+          </div>}
 
         </div>
 

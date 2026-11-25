@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
+const isAdminMiddleware = require('../middlewares/isAdminMiddleware');
 const alunoController = require('../controllers/alunoController');
 
 // Listar alunos (auth - admin e professor)
@@ -21,6 +22,6 @@ router.post('/:id/modelos-treino', authMiddleware, alunoController.atribuirModel
 router.delete('/:id/modelos-treino/:modeloId', authMiddleware, alunoController.desassociarModelo);
 
 // Excluir aluno (apenas admin)
-router.delete('/:id', authMiddleware, alunoController.excluir);
+router.delete('/:id', authMiddleware, isAdminMiddleware, alunoController.excluir);
 
 module.exports = router;

@@ -1,32 +1,46 @@
+const { promisify } = require('node:util');
 const Aluno = require('../models/Aluno');
 const AlunoModeloTreino = require('../models/AlunoModeloTreino');
+const logFalha = require('../utils/logFalha');
+
+const validarModelos = promisify(AlunoModeloTreino.validarModelos);
+
+const { acesso } = require('../services/permissoesProfessor');
+function ocultarSaude(req, aluno) {
+  if (req.usuario.cargo !== 'professor' || acesso(req.permissoesProfessor,'saude','visualizar')) return aluno;
+  const { anamnese, contato_emergencia, ...dados } = aluno;
+  return dados;
+}
 
 const alunoController = {
   listar(req, res) {
-    const { academia_id } = req.query;
+    const { academia_id } = req.usuario;
 
-    Aluno.listar({ academia_id }, (err, alunos) => {
+    Aluno.listar({ academia_id, resumo: req.query.resumo === '1' }, (err, alunos) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao listar alunos.' });
-      res.json(alunos);
+      res.json(alunos.map((aluno) => ocultarSaude(req,aluno)));
     });
   },
 
   findById(req, res) {
-    Aluno.findById(req.params.id, (err, aluno) => {
+    Aluno.findById(req.params.id, req.usuario.academia_id, (err, aluno) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao buscar aluno.' });
       if (!aluno) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
 
-      AlunoModeloTreino.listarPorAluno(req.params.id, (modErr, modelos) => {
+      if (req.usuario.cargo === 'professor' && !acesso(req.permissoesProfessor,'modelos','visualizar')) {
+        return res.json({ ...ocultarSaude(req,aluno), modelos:[] });
+      }
+      AlunoModeloTreino.listarPorAluno(req.params.id, req.usuario.academia_id, (modErr, modelos) => {
         if (modErr) {
-          console.error('Erro ao buscar modelos do aluno:', modErr.message);
-          return res.json({ ...aluno, modelos: [] });
+          logFalha('Erro ao buscar modelos do aluno', modErr);
+          return res.json({ ...ocultarSaude(req,aluno), modelos: [] });
         }
-        res.json({ ...aluno, modelos: modelos || [] });
+        res.json({ ...ocultarSaude(req,aluno), modelos: modelos || [] });
       });
     });
   },
 
-  create(req, res) {
+  async create(req, res) {
     const {
       nome,
       cpf,
@@ -44,6 +58,14 @@ const alunoController = {
       return res.status(400).json({ mensagem: 'Nome do aluno é obrigatório.' });
     }
 
+    try {
+      await validarModelos(modelos_ids ?? [], req.usuario.academia_id);
+    } catch (erro) {
+      return res.status(erro.status || 500).json({
+        mensagem: erro.status ? erro.message : 'Erro ao validar modelos de treino.',
+      });
+    }
+
     Aluno.create(
       { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id: req.usuario.academia_id },
       (err, result) => {
@@ -53,9 +75,9 @@ const alunoController = {
         // Se foram selecionados modelos de treinamento no cadastro, realiza a atribuição lógica
         const listaIds = Array.isArray(modelos_ids) ? modelos_ids : [];
         if (listaIds.length > 0) {
-          AlunoModeloTreino.atribuirMultiplos(novoAlunoId, listaIds, null, (attrErr, modelosAtribuidos) => {
+          AlunoModeloTreino.atribuirMultiplos(novoAlunoId, listaIds, null, req.usuario.academia_id, (attrErr, modelosAtribuidos) => {
             if (attrErr) {
-              console.error('Erro ao atribuir modelos ao aluno no cadastro:', attrErr.message);
+              logFalha('Erro ao atribuir modelos ao aluno no cadastro', attrErr);
             }
             return res.status(201).json({
               mensagem: 'Aluno cadastrado com sucesso com modelos de treino atribuídos.',
@@ -81,7 +103,7 @@ const alunoController = {
     );
   },
 
-  atualizar(req, res) {
+  async atualizar(req, res) {
     const {
       nome,
       cpf,
@@ -95,15 +117,28 @@ const alunoController = {
       modelos_ids,
     } = req.body;
 
+    try {
+      await validarModelos(modelos_ids ?? [], req.usuario.academia_id);
+    } catch (erro) {
+      return res.status(erro.status || 500).json({
+        mensagem: erro.status ? erro.message : 'Erro ao validar modelos de treino.',
+      });
+    }
+
     Aluno.atualizar(
       req.params.id,
-      { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status },
-      (err) => {
+      { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status,
+        preservarAnamnese: !Object.hasOwn(req.body,'anamnese'),
+        preservarContato: !Object.hasOwn(req.body,'contato_emergencia') },
+      req.usuario.academia_id,
+      function (err) {
         if (err) return res.status(500).json({ mensagem: 'Erro ao atualizar aluno.' });
+
+        if (!this.changes) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
 
         // Se a lista de modelos_ids foi enviada na atualização, sincroniza
         if (Array.isArray(modelos_ids)) {
-          AlunoModeloTreino.listarPorAluno(req.params.id, (listErr, modelosAtuais) => {
+          AlunoModeloTreino.listarPorAluno(req.params.id, req.usuario.academia_id, (listErr, modelosAtuais) => {
             if (listErr) {
               return res.json({ mensagem: 'Aluno atualizado com sucesso.' });
             }
@@ -129,11 +164,11 @@ const alunoController = {
             };
 
             paraRemover.forEach((mId) => {
-              AlunoModeloTreino.desassociar(req.params.id, mId, () => checkFim());
+              AlunoModeloTreino.desassociar(req.params.id, mId, req.usuario.academia_id, () => checkFim());
             });
 
             if (paraAdicionar.length > 0) {
-              AlunoModeloTreino.atribuirMultiplos(req.params.id, paraAdicionar, null, () => checkFim());
+              AlunoModeloTreino.atribuirMultiplos(req.params.id, paraAdicionar, null, req.usuario.academia_id, () => checkFim());
             }
           });
         } else {
@@ -144,8 +179,9 @@ const alunoController = {
   },
 
   excluir(req, res) {
-    Aluno.excluir(req.params.id, (err) => {
+    Aluno.excluir(req.params.id, req.usuario.academia_id, function (err) {
       if (err) return res.status(500).json({ mensagem: 'Erro ao excluir aluno.' });
+      if (!this.changes) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
       res.json({ mensagem: 'Aluno excluído com sucesso.' });
     });
   },
@@ -153,12 +189,16 @@ const alunoController = {
   // Endpoints dedicados de atribuição de modelos ao aluno
   listarModelos(req, res) {
     const { id } = req.params;
-    AlunoModeloTreino.listarPorAluno(id, (err, modelos) => {
-      if (err) {
-        console.error('Erro ao listar modelos do aluno:', err.message);
-        return res.status(500).json({ erro: 'Erro ao listar modelos de treino do aluno.' });
-      }
-      res.json(modelos || []);
+    Aluno.findById(id, req.usuario.academia_id, (erro, aluno) => {
+      if (erro) return res.status(500).json({ erro: 'Erro ao verificar aluno.' });
+      if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
+      AlunoModeloTreino.listarPorAluno(id, req.usuario.academia_id, (err, modelos) => {
+        if (err) {
+          logFalha('Erro ao listar modelos do aluno', err);
+          return res.status(500).json({ erro: 'Erro ao listar modelos de treino do aluno.' });
+        }
+        res.json(modelos || []);
+      });
     });
   },
 
@@ -167,10 +207,10 @@ const alunoController = {
     const { modelo_id, modelos_ids, data_inicio, observacoes } = req.body || {};
 
     if (Array.isArray(modelos_ids) && modelos_ids.length > 0) {
-      AlunoModeloTreino.atribuirMultiplos(id, modelos_ids, observacoes, (err, lista) => {
+      AlunoModeloTreino.atribuirMultiplos(id, modelos_ids, observacoes, req.usuario.academia_id, (err, lista) => {
         if (err) {
-          if (err.status === 400) return res.status(400).json({ erro: err.message });
-          console.error('Erro ao atribuir múltiplos modelos:', err.message);
+          if (err.status === 400 || err.status === 404) return res.status(err.status).json({ erro: err.message });
+          logFalha('Erro ao atribuir múltiplos modelos', err);
           return res.status(500).json({ erro: 'Erro ao atribuir modelos de treino ao aluno.' });
         }
         return res.status(201).json(lista || []);
@@ -180,10 +220,10 @@ const alunoController = {
         return res.status(400).json({ erro: 'O campo modelo_id é obrigatório.' });
       }
 
-      AlunoModeloTreino.atribuir(id, { modelo_id, data_inicio, observacoes }, (err, lista) => {
+      AlunoModeloTreino.atribuir(id, { modelo_id, data_inicio, observacoes }, req.usuario.academia_id, (err, lista) => {
         if (err) {
-          if (err.status === 400) return res.status(400).json({ erro: err.message });
-          console.error('Erro ao atribuir modelo ao aluno:', err.message);
+          if (err.status === 400 || err.status === 404) return res.status(err.status).json({ erro: err.message });
+          logFalha('Erro ao atribuir modelo ao aluno', err);
           return res.status(500).json({ erro: 'Erro ao atribuir modelo de treino ao aluno.' });
         }
         return res.status(201).json(lista || []);
@@ -193,11 +233,12 @@ const alunoController = {
 
   desassociarModelo(req, res) {
     const { id, modeloId } = req.params;
-    AlunoModeloTreino.desassociar(id, modeloId, (err) => {
+    AlunoModeloTreino.desassociar(id, modeloId, req.usuario.academia_id, (err, resultado) => {
       if (err) {
-        console.error('Erro ao remover modelo do aluno:', err.message);
+        logFalha('Erro ao remover modelo do aluno', err);
         return res.status(500).json({ erro: 'Erro ao remover modelo do aluno.' });
       }
+      if (!resultado.changes) return res.status(404).json({ erro: 'Vínculo não encontrado.' });
       res.json({ mensagem: 'Modelo de treino desvinculado do aluno com sucesso.' });
     });
   },

@@ -57,9 +57,14 @@ const ExecucaoTreino = {
     };
   },
 
-  listar: ({ alunoId = '', treinoId = '', modeloId = '', dataInicio = '', dataFim = '' } = {}, callback) => {
-    const params = [];
-    const conditions = [];
+  listar: ({ alunoId = '', treinoId = '', modeloId = '', dataInicio = '', dataFim = '', academiaId } = {}, callback) => {
+    const params = [academiaId];
+    const conditions = [
+      '(et.academia_id = a.academia_id OR et.academia_id IS NULL)',
+      '(et.treino_id IS NULL OR t.id IS NOT NULL)',
+      '(et.modelo_id IS NULL OR m.id IS NOT NULL)',
+      '(et.divisao_id IS NULL OR d.id IS NOT NULL)',
+    ];
 
     let sql = `
       SELECT
@@ -69,10 +74,13 @@ const ExecucaoTreino = {
         COALESCE(et.modelo_nome, m.nome, 'Treino Personalizado') AS modelo_nome,
         COALESCE(et.divisao_nome, d.nome, t.divisao, 'Sessão Livre') AS divisao_nome
       FROM execucoes_treino et
-      LEFT JOIN alunos a ON a.id = et.aluno_id
-      LEFT JOIN treinos t ON t.id = et.treino_id
-      LEFT JOIN modelos_treino m ON m.id = et.modelo_id
-      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id
+      JOIN alunos a ON a.id = et.aluno_id AND a.academia_id = ?
+      LEFT JOIN treinos t ON t.id = et.treino_id AND t.aluno_id = a.id
+        AND (t.academia_id = a.academia_id OR t.academia_id IS NULL)
+      LEFT JOIN modelos_treino m ON m.id = et.modelo_id AND m.academia_id IN (0, a.academia_id)
+      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id AND d.modelo_id IN
+        (SELECT id FROM modelos_treino WHERE academia_id IN (0, a.academia_id))
+        AND (et.modelo_id IS NULL OR d.modelo_id = m.id)
     `;
 
     if (alunoId && String(alunoId).trim() !== '') {
@@ -112,7 +120,7 @@ const ExecucaoTreino = {
     });
   },
 
-  buscarPorId: (id, callback) => {
+  buscarPorId: (id, academiaId, callback) => {
     const sql = `
       SELECT
         et.*,
@@ -121,13 +129,20 @@ const ExecucaoTreino = {
         COALESCE(et.modelo_nome, m.nome, 'Treino Personalizado') AS modelo_nome,
         COALESCE(et.divisao_nome, d.nome, t.divisao, 'Sessão Livre') AS divisao_nome
       FROM execucoes_treino et
-      LEFT JOIN alunos a ON a.id = et.aluno_id
-      LEFT JOIN treinos t ON t.id = et.treino_id
-      LEFT JOIN modelos_treino m ON m.id = et.modelo_id
-      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id
+      JOIN alunos a ON a.id = et.aluno_id AND a.academia_id = ?
+      LEFT JOIN treinos t ON t.id = et.treino_id AND t.aluno_id = a.id
+        AND (t.academia_id = a.academia_id OR t.academia_id IS NULL)
+      LEFT JOIN modelos_treino m ON m.id = et.modelo_id AND m.academia_id IN (0, a.academia_id)
+      LEFT JOIN divisoes_treino d ON d.id = et.divisao_id AND d.modelo_id IN
+        (SELECT id FROM modelos_treino WHERE academia_id IN (0, a.academia_id))
+        AND (et.modelo_id IS NULL OR d.modelo_id = m.id)
       WHERE et.id = ?
+        AND (et.academia_id = a.academia_id OR et.academia_id IS NULL)
+        AND (et.treino_id IS NULL OR t.id IS NOT NULL)
+        AND (et.modelo_id IS NULL OR m.id IS NOT NULL)
+        AND (et.divisao_id IS NULL OR d.id IS NOT NULL)
     `;
-    db.get(sql, [id], (err, row) => {
+    db.get(sql, [academiaId, id], (err, row) => {
       if (err) return callback(err);
       callback(null, row ? ExecucaoTreino.normalizarRow(row) : null);
     });
@@ -135,6 +150,7 @@ const ExecucaoTreino = {
 
   criar: (dados, callback) => {
     const {
+      academiaId,
       treino_id = null,
       aluno_id,
       modelo_id = null,
@@ -166,6 +182,7 @@ const ExecucaoTreino = {
     const snapshotSerializado = snapshotFinal ? JSON.stringify(snapshotFinal) : null;
 
     const colunas = [
+      'academia_id',
       'aluno_id',
       'treino_id',
       'modelo_id',
@@ -179,9 +196,10 @@ const ExecucaoTreino = {
       'cargas_json',
     ];
 
-    const placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'];
+    const placeholders = colunas.map(() => '?');
 
     const params = [
+      academiaId,
       Number(aluno_id),
       treino_id !== '' && treino_id !== null ? Number(treino_id) : null,
       modelo_id !== '' && modelo_id !== null ? Number(modelo_id) : null,
@@ -210,12 +228,13 @@ const ExecucaoTreino = {
       if (err) return callback(err);
       const novoId = this && this.lastID ? this.lastID : null;
       if (!novoId) return callback(new Error('Não foi possível obter o ID da execução registrada.'));
-      ExecucaoTreino.buscarPorId(novoId, callback);
+      ExecucaoTreino.buscarPorId(novoId, academiaId, callback);
     });
   },
 
-  deletar: (id, callback) => {
-    db.run(`DELETE FROM execucoes_treino WHERE id = ?`, [id], function (err) {
+  deletar: (id, academiaId, callback) => {
+    db.run(`DELETE FROM execucoes_treino WHERE id = ? AND (academia_id = ? OR academia_id IS NULL)
+      AND aluno_id IN (SELECT id FROM alunos WHERE academia_id = ?)`, [id, academiaId, academiaId], function (err) {
       if (err) return callback(err);
       callback(null, {
         deleted: true,

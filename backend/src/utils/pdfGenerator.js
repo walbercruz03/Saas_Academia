@@ -162,7 +162,7 @@ const gerarPDF = (data, res) => {
     }
     if (incluirFrequencia) {
       resumoItens.push(
-        `• Frequência: ${resumoFrequencia.totalCheckins ?? 0} check-in(s) no período por ${resumoFrequencia.alunosDistinct ?? 0} aluno(s) distinto(s).`
+        `• Frequência: ${resumoFrequencia.totalCheckins ?? 0} check-in(s) no período | ${resumoFrequencia.alunosDistinct ?? 0} aluno(s) presente(s) distinto(s).`
       );
     }
     if (incluirPlanos) {
@@ -256,10 +256,11 @@ const gerarPDF = (data, res) => {
           doc.fillColor(corTexto).fontSize(8).font('Helvetica');
           doc.text(m.aluno_nome || '—', 46, y + 4, { width: 145, ellipsis: true });
           doc.text(m.plano_nome || '—', 195, y + 4, { width: 120, ellipsis: true });
-          doc.text(formatarDataBR(m.data_inicio), 319, y + 4, { width: 65 });
-          doc.text(formatarDataBR(m.data_vencimento), 388, y + 4, { width: 70 });
+          doc.text(formatarDataBR(m.data_inicio?.slice(0, 10)), 319, y + 4, { width: 65 });
+          doc.text(formatarDataBR(m.data_vencimento?.slice(0, 10)), 388, y + 4, { width: 70 });
           doc.text(formatarMoedaBR(m.valor_pago), 462, y + 4, { width: 52 });
-          doc.text(m.status || '—', 518, y + 4, { width: 38 });
+          const status = (m.situacao_efetiva || m.status || '—').replaceAll('_', ' ');
+          doc.text(status, 518, y + 4, { width: 38, height: 16 });
           y += 20;
         });
       } else {

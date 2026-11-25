@@ -5,6 +5,7 @@ const nivelDificuldadeController = {
     const { apenas_ativos = '' } = req.query;
     NivelDificuldade.listar(
       {
+        academia_id: req.usuario.academia_id,
         apenasAtivos: apenas_ativos === '1' || apenas_ativos === 'true',
       },
       (err, rows) => {
@@ -19,7 +20,7 @@ const nivelDificuldadeController = {
 
   buscarPorId(req, res) {
     const { id } = req.params;
-    NivelDificuldade.buscarPorId(id, (err, nivel) => {
+    NivelDificuldade.buscarPorId(id, req.usuario.academia_id, (err, nivel) => {
       if (err) {
         console.error('Erro ao buscar nível de dificuldade:', err.message);
         return res.status(500).json({ erro: 'Erro ao buscar nível de dificuldade.' });
@@ -37,7 +38,7 @@ const nivelDificuldadeController = {
       return res.status(400).json({ erro: 'O nome do nível de dificuldade é obrigatório.' });
     }
 
-    NivelDificuldade.criar({ nome, slug, ordem, ativo }, (err, criado) => {
+    NivelDificuldade.criar({ nome, slug, ordem, ativo, academia_id: req.usuario.academia_id }, (err, criado) => {
       if (err) {
         if (err.message && /unique/i.test(err.message)) {
           return res.status(400).json({ erro: 'Já existe um nível com este nome ou identificador (slug).' });
@@ -56,7 +57,7 @@ const nivelDificuldadeController = {
       return res.status(400).json({ erro: 'O nome do nível de dificuldade é obrigatório.' });
     }
 
-    NivelDificuldade.atualizar(id, { nome, slug, ordem, ativo }, (err, atualizado) => {
+    NivelDificuldade.atualizar(id, { nome, slug, ordem, ativo, academia_id: req.usuario.academia_id }, (err, atualizado) => {
       if (err) {
         if (err.message && /unique/i.test(err.message)) {
           return res.status(400).json({ erro: 'Já existe um nível com este nome ou identificador (slug).' });
@@ -64,13 +65,14 @@ const nivelDificuldadeController = {
         console.error('Erro ao atualizar nível de dificuldade:', err.message);
         return res.status(500).json({ erro: 'Erro ao atualizar nível de dificuldade.' });
       }
-      res.json(atualizado);
+      if (!atualizado) return res.status(404).json({ erro: 'Registro não encontrado.' });
+      return res.json(atualizado);
     });
   },
 
   deletar(req, res) {
     const { id } = req.params;
-    NivelDificuldade.deletar(id, (err) => {
+    NivelDificuldade.deletar(id, req.usuario.academia_id, (err, resultado) => {
       if (err) {
         if (err.status === 400) {
           return res.status(400).json({ erro: err.message });
@@ -78,6 +80,7 @@ const nivelDificuldadeController = {
         console.error('Erro ao excluir nível de dificuldade:', err.message);
         return res.status(500).json({ erro: 'Erro ao excluir nível de dificuldade.' });
       }
+      if (!resultado.changes) return res.status(404).json({ erro: 'Registro não encontrado.' });
       res.json({ mensagem: 'Nível de dificuldade excluído com sucesso.' });
     });
   },

@@ -29,13 +29,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401) {
+    const academiaInativa = status === 403 && error.response?.data?.codigo === 'ACADEMIA_INATIVA';
+    if (status === 403 && error.response?.data?.codigo === 'PERMISSAO_NEGADA') {
+      window.dispatchEvent(new Event('wcfit:permissao-negada'));
+    }
+    if (status === 401 || academiaInativa) {
       localStorage.removeItem('token');
       localStorage.removeItem('wcfit_token');
       localStorage.removeItem('authToken');
       localStorage.removeItem('usuario');
       if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        window.location.href = academiaInativa ? '/login?motivo=academia-inativa' : '/login';
       }
     }
     return Promise.reject(error);

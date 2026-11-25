@@ -1,3 +1,5 @@
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -44,6 +46,7 @@ const formatarDataCurta = (dataStr) => {
 };
 
 export default function AcompanhamentoTreinos() {
+  const { usuario: usuarioAtual } = useAuth();
   const [execucoes, setExecucoes] = useState([]);
   const [alunos, setAlunos] = useState([]);
   const [treinos, setTreinos] = useState([]);
@@ -599,7 +602,7 @@ export default function AcompanhamentoTreinos() {
           <div className="treinamento-acoes-linha" style={{ gridColumn: '1 / -1' }}>
             <button
               type="submit"
-              disabled={salvando}
+              disabled={!podeAcessar(usuarioAtual,'execucoes','criar') || salvando}
               className="treinamento-btn treinamento-btn--escuro"
             >
               {salvando ? 'Salvando Snapshot...' : '💾 Registrar Execução e Gravar Snapshot'}
@@ -727,7 +730,7 @@ export default function AcompanhamentoTreinos() {
                     <td>
                       <button
                         type="button"
-                        onClick={() => handleExcluirExecucao(exec.id)}
+                        disabled={!podeAcessar(usuarioAtual,'execucoes','excluir')} onClick={() => handleExcluirExecucao(exec.id)}
                         className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                         style={{ fontSize: '0.75rem', padding: '3px 8px' }}
                       >

@@ -1,183 +1,53 @@
-/* ==========================================================
-   PÁGINA TREINOS - WC FIT (Padronizada e Fluida)
-   ========================================================== */
-
-.treinamento-page .form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.1rem;
-  width: 100%;
+/* WC Fit — Treinos dos Alunos. Estilos exclusivos desta página. */
+.treinamento-page.treinos-modernos {container-type:inline-size;}
+.treinos-modernos .form-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;width:100%;}
+.treinos-modernos .form-grid > .campo {display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:none;min-width:0;}
+.treinos-modernos .form-grid > .campo-full,.treinos-modernos .form-grid > .exercicios-container {grid-column:1/-1;width:100%;max-width:none;min-width:0;}
+.treinos-modernos .campo label,.treinos-modernos .treino-campo-label {font-size:.85rem;font-weight:600;color:var(--text-body,#334155);}
+.treinos-modernos .treino-campo-label {display:flex;flex-direction:column;gap:.45rem;width:100%;max-width:none;}
+.treinos-modernos .form-grid input,.treinos-modernos .form-grid select {width:100%;max-width:none;min-width:0;}
+.treinos-modernos .treinamento-resumo-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;}
+.treinamento-page.treinos-modernos .treinamento-stat-card {gap:.55rem;border-top:3px solid #2563eb;margin:0;}
+.treinos-modernos .treinamento-stat-card svg,.treinos-modernos .treino-titulo svg {color:#2563eb;flex-shrink:0;}
+.treinos-modernos .treino-titulo,.treinos-modernos .btn-voltar {display:flex;align-items:center;gap:.65rem;}
+.treinos-modernos .form-card > h3 {margin:0 0 1.4rem;}
+.treinamento-page.treinos-modernos .treinamento-biblioteca-box,.treinos-modernos .exercicios-container {background:var(--bg-subtle,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:1.15rem;}
+.treinos-modernos .exercicios-container h4 {margin:0 0 1rem;}
+.treinamento-page.treinos-modernos .treinamento-biblioteca-busca {flex:1 1 240px;max-width:none;}
+.treinos-modernos .treinamento-chip {background:var(--bg-card,#fff);color:var(--text-body,#334155);border:1px solid var(--border,#cbd5e1);padding:.5rem .8rem;}
+.treinos-modernos .treinamento-chip:hover {background:#2563eb;color:white;}
+.treinos-modernos .treinamento-item-box {display:block;width:100%;max-width:none;background:var(--bg-card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:1rem;margin-bottom:1rem;}
+.treinamento-page.treinos-modernos .exercicio-row {display:grid;grid-template-columns:repeat(2,minmax(0,2fr)) repeat(3,minmax(0,1fr));gap:.75rem;width:100%;}
+.treinos-modernos .treinamento-item-campos {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:.75rem;width:100%;}
+.treinos-modernos .form-grid > .campo-full:last-child {display:flex;justify-content:flex-end;align-items:center;padding-top:1rem;border-top:1px solid var(--border,#e2e8f0);}
+.treinos-modernos .treino-lista-topo {display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:1.5rem 0 1rem;}
+.treinos-modernos .treino-lista-topo h3 {margin:0;}
+.treinos-modernos .treino-busca {display:flex;align-items:center;gap:.6rem;flex:0 1 340px;color:var(--text-muted,#64748b);}
+.treinos-modernos .treinos-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:1.25rem;width:100%;align-items:stretch;}
+.treinamento-page.treinos-modernos .treino-card {display:flex;flex-direction:column;gap:1rem;margin:0;height:100%;padding:1.25rem;border-top:3px solid #2563eb;}
+.treinos-modernos .treino-card h4 {margin:0;overflow-wrap:anywhere;}
+.treinos-modernos .treino-card .treinamento-badge {margin:.5rem 0 .75rem;}
+.treinos-modernos .treino-card p {margin:0 0 .75rem;}
+.treinos-modernos .treino-exercicios-lista {background:var(--bg-subtle,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:.75rem;max-height:200px;overflow-y:auto;}
+.treinos-modernos .treino-acoes {display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:.5rem;margin-top:auto;padding-top:1rem;border-top:1px solid var(--border,#e2e8f0);}
+.treinos-modernos .treino-acoes a,.treinos-modernos .treino-acoes button {display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:36px;width:auto;padding:.5rem .75rem;border:0;border-radius:8px;font-size:.8rem;font-weight:600;text-decoration:none;cursor:pointer;}
+.treinos-modernos .treino-acoes .btn-whatsapp {background:#15803d;color:#fff;}
+.treinos-modernos .treino-acoes .btn-excluir-treino {background:#fee2e2;color:#991b1b;}
+.treinos-modernos .treino-acoes button:disabled {opacity:.5;cursor:not-allowed;}
+.treinos-modernos input:focus,.treinos-modernos select:focus {outline:2px solid #60a5fa;outline-offset:1px;}
+[data-theme="dark"] .treinamento-page.treinos-modernos .treinamento-item-box {background:#1c2028;border-color:#334155;}
+[data-theme="dark"] .treinos-modernos .treinamento-chip {background:#1e293b;color:#e2e8f0;border-color:#475569;}
+[data-theme="dark"] .treinos-modernos .treinamento-chip:hover {background:#2563eb;color:white;}
+[data-theme="dark"] .treinos-modernos .treinamento-preview-item {border-color:#334155;}
+@container (max-width:900px) {
+ .treinamento-page.treinos-modernos .exercicio-row {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .treinos-modernos .treinamento-resumo-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
 }
-
-.treinamento-page .campo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  width: 100%;
-  min-width: 0;
+@container (max-width:560px) {
+ .treinos-modernos .form-grid,.treinamento-page.treinos-modernos .exercicio-row,.treinos-modernos .treinamento-item-campos,.treinos-modernos .treinos-grid {grid-template-columns:minmax(0,1fr);}
+ .treinos-modernos .treino-busca {flex:1 1 100%;}
+ .treinos-modernos .form-grid > .campo-full:last-child button {width:100%;}
+ .treinos-modernos .treino-acoes a,.treinos-modernos .treino-acoes button {flex:1 1 auto;}
+ .treinos-modernos .exercicios-container {padding:.75rem;}
 }
-
-.treinamento-page .campo.campo-full {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-/* Área dinâmica de adição de exercícios */
-.treinamento-page .exercicios-container {
-  grid-column: 1 / -1;
-  background: var(--bg-subtle, #f8fafc);
-  padding: 1.25rem;
-  border-radius: 10px;
-  border: 1px solid var(--border, #e2e8f0);
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-}
-
-.treinamento-page .exercicios-container h4 {
-  margin: 0 0 0.85rem 0;
-  color: var(--text-heading, #0f172a);
-}
-
-/* Rodapé de envio do formulário */
-.treinamento-page .form-grid > .campo-full:last-child {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border, #e2e8f0);
-}
-
-/* Grid da listagem de treinos cadastrados */
-.treinos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 1rem;
-  margin-bottom: 2rem;
-}
-
-/* Card de treino cadastrado padronizado */
-.treinamento-page .treino-card {
-  margin-bottom: 0;
-  padding: 1.35rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0.85rem;
-  height: 100%;
-}
-
-.treinamento-page .treino-card h4 {
-  margin: 0 0 0.35rem 0;
-  color: var(--text-heading, #0f172a);
-}
-
-.treinamento-page .treino-card p {
-  margin: 0 0 0.65rem 0;
-  font-size: 0.9rem;
-}
-
-.treino-exercicios-lista {
-  background: var(--bg-subtle, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  max-height: 160px;
-  overflow-y: auto;
-}
-
-/* Rodapé de ações do card */
-.treino-acoes {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: auto;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border, #e2e8f0);
-}
-
-.treino-acoes a,
-.treino-acoes button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  line-height: 1.2;
-  width: auto;
-}
-
-.btn-whatsapp {
-  background-color: #22c55e;
-  color: #ffffff;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  text-decoration: none;
-}
-
-.btn-whatsapp:hover {
-  background-color: #16a34a;
-}
-
-.btn-excluir-treino {
-  background: #fee2e2;
-  color: #991b1b;
-  border: none;
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-excluir-treino:hover {
-  background: #fecaca;
-}
-
-[data-theme="dark"] .treinamento-page .exercicios-container,
-[data-theme="dark"] .treino-exercicios-lista {
-  background: rgba(15, 23, 42, 0.55);
-  border-color: #334155;
-}
-
-@media (max-width: 768px) {
-  .treinamento-page .form-grid,
-  .treinos-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .treinamento-page .form-grid > .campo-full:last-child {
-    justify-content: stretch;
-  }
-
-  .treinamento-page .form-grid > .campo-full:last-child button {
-    width: 100%;
-  }
-
-  .treino-acoes {
-    justify-content: stretch;
-  }
-
-  .treino-acoes a,
-  .treino-acoes button {
-    flex: 1 1 auto;
-  }
-}
+@container (max-width:340px) {.treinos-modernos .treinamento-resumo-grid {grid-template-columns:1fr;}}

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import useOperacaoPendente from '../useOperacaoPendente';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/styles.css';
 import '../styles/matricula.css';
 
@@ -18,13 +20,7 @@ const normalizarDataInput = (valor) => {
   return String(valor).trim().slice(0, 10);
 };
 
-const hojeISO = () => {
-  const agora = new Date();
-  const ano = agora.getFullYear();
-  const mes = String(agora.getMonth() + 1).padStart(2, '0');
-  const dia = String(agora.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
-};
+const hojeISO = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Fortaleza', dateStyle: 'short' }).format(new Date());
 
 const calcularVencimentoPorPlano = (inicioStr, plano) => {
   if (!inicioStr || !plano) return '';
@@ -64,21 +60,29 @@ export default function Matriculas() {
   const [editingId, setEditingId] = useState(null);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const envioEmCurso = useRef(false);
+  const { pendente, enviar, encerrarLegado } = useOperacaoPendente('matricula', '/matriculas');
+  const renovacao = useOperacaoPendente('renovacao', '/matriculas/renovacoes');
+  const [previa, setPrevia] = useState(null);
+  const termosRenovacao = renovacao.pendente?.dados || previa;
+  const { usuario } = useAuth();
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
-    carregarDados();
+    carregarDados(true);
   }, []);
 
-  const carregarDados = async () => {
+  const carregarDados = async (inicial = false) => {
     try {
-      const [a, p, m] = await Promise.all([
-        api.get('/alunos'),
-        api.get('/planos'),
+      const [m, a, p] = await Promise.all([
         api.get('/matriculas'),
+        inicial && api.get('/alunos', { params: { resumo: '1' } }),
+        inicial && api.get('/planos'),
       ]);
-      setAlunos(Array.isArray(a.data) ? a.data : []);
-      setPlanos(Array.isArray(p.data) ? p.data : []);
+      if (inicial) {
+        setAlunos(Array.isArray(a.data) ? a.data : []);
+        setPlanos(Array.isArray(p.data) ? p.data : []);
+      }
       setMatriculas(Array.isArray(m.data) ? m.data : []);
     } catch {
       setErro('Erro ao carregar.');
@@ -117,25 +121,29 @@ export default function Matriculas() {
     setMatricula((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, reenvio = false) => {
     e.preventDefault();
+    if (envioEmCurso.current) return;
+    envioEmCurso.current = true;
     setErro('');
     setSucesso('');
     setCarregando(true);
     try {
-      if (editingId) {
+      if (editingId && !reenvio) {
         await api.put(`/matriculas/${editingId}`, matricula);
         setSucesso('Matrícula atualizada!');
         setEditingId(null);
       } else {
-        await api.post('/matriculas', matricula);
+        await enviar(reenvio ? undefined : matricula);
+        setEditingId(null);
         setSucesso('Matrícula criada!');
       }
       setMatricula(FORM_VAZIO);
       carregarDados();
-    } catch {
-      setErro('Erro ao salvar matrícula.');
+    } catch (falha) {
+      setErro(falha.response?.data?.mensagem || falha.message || 'Erro ao salvar matrícula.');
     } finally {
+      envioEmCurso.current = false;
       setCarregando(false);
     }
   };
@@ -151,6 +159,45 @@ export default function Matriculas() {
     });
     setEditingId(m.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const abrirRenovacao = async (id) => {
+    if (envioEmCurso.current || renovacao.pendente) return;
+    envioEmCurso.current = true;
+    setCarregando(true);
+    setPrevia(null);
+    setErro('');
+    setSucesso('');
+    try {
+      const { data } = await api.get(`/matriculas/${id}/renovacao`);
+      setPrevia(data);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (falha) {
+      setErro(falha.response?.data?.mensagem || 'Erro ao consultar a renovação.');
+    } finally {
+      envioEmCurso.current = false;
+      setCarregando(false);
+    }
+  };
+
+  const confirmarRenovacao = async (reenvio) => {
+    if (envioEmCurso.current) return;
+    envioEmCurso.current = true;
+    setCarregando(true);
+    setErro('');
+    setSucesso('');
+    try {
+      await renovacao.enviar(reenvio ? undefined : previa);
+      setPrevia(null);
+      setSucesso('Matrícula renovada!');
+      carregarDados();
+    } catch (falha) {
+      if ([400, 404, 409, 422].includes(falha.response?.status)) setPrevia(null);
+      setErro(falha.response?.data?.mensagem || falha.message || 'Erro ao renovar matrícula.');
+    } finally {
+      envioEmCurso.current = false;
+      setCarregando(false);
+    }
   };
 
   const excluir = async (id) => {
@@ -180,9 +227,38 @@ export default function Matriculas() {
       {erro && <div className="msg-erro">{erro}</div>}
       {sucesso && <div className="msg-sucesso">{sucesso}</div>}
 
+      {usuario?.cargo === 'admin' && termosRenovacao && (
+        <div className="form-card">
+          <h3>Renovação de matrícula</h3>
+          <p>{termosRenovacao.plano_nome} · {termosRenovacao.duracao_meses} mês(es) · {termosRenovacao.data_inicio} a {termosRenovacao.data_vencimento}. Lançamento financeiro manual.</p>
+          <div className="btn-grupo">
+            <button type="button" className="btn-salvar" disabled={carregando}
+              onClick={() => confirmarRenovacao(Boolean(renovacao.pendente))}>
+              {renovacao.pendente ? 'Reenviar renovação pendente' : 'Confirmar renovação'}
+            </button>
+            {!renovacao.pendente && (
+              <button type="button" className="btn-outline" onClick={() => setPrevia(null)} disabled={carregando}>Cancelar</button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="form-card">
         <h3 style={{ marginTop: 0 }}>{editingId ? 'Editar Matrícula' : 'Nova Matrícula'}</h3>
 
+        {pendente && (
+          <div className="btn-grupo">
+            {pendente.legado ? (
+              <button type="button" className="btn-outline" disabled={carregando} onClick={encerrarLegado}>
+                Encerrar pendência após conferir histórico
+              </button>
+            ) : (
+              <button type="button" className="btn-outline" disabled={carregando} onClick={(e) => handleSubmit(e, true)}>
+                Reenviar pendência
+              </button>
+            )}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="form-grid">
           <div className="campo">
             <label>Aluno</label>
@@ -264,8 +340,14 @@ export default function Matriculas() {
                 <td>{alunoNome(m.aluno_id)}</td>
                 <td>{planoNome(m.plano_id)}</td>
                 <td>{normalizarDataInput(m.data_vencimento) || '-'}</td>
-                <td><span className={`badge badge-${m.status}`}>{m.status}</span></td>
+                <td><span className={`badge badge-${m.situacao_efetiva === 'vigente' ? 'ativo' : 'inativo'}`}>
+                  {(m.situacao_efetiva || m.status).replaceAll('_', ' ')}
+                </span></td>
                 <td className="acao-col">
+                  {usuario?.cargo === 'admin' && ['vigente', 'vencida'].includes(m.situacao_efetiva) && (
+                    <button type="button" className="btn-icon" disabled={carregando || Boolean(renovacao.pendente)}
+                      onClick={() => abrirRenovacao(m.id)}>Renovar</button>
+                  )}
                   <button onClick={() => editar(m)} className="btn-icon">Editar</button>
                   <button onClick={() => excluir(m.id)} className="btn-icon" style={{ color: '#dc2626' }}>Excluir</button>
                 </td>

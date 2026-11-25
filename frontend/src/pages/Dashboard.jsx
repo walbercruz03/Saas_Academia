@@ -1,3 +1,4 @@
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
 import {
   ResponsiveContainer,
@@ -63,14 +64,9 @@ const hojeFortalezaISO = () => {
 };
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    total_alunos: 0,
-    alunos_ativos: 0,
-    total_planos: 0,
-    total_matriculas: 0,
-    matriculas_ativas: 0,
-  });
-  const [matriculasRaw, setMatriculasRaw] = useState([]);
+  const { usuario } = useAuth();
+  const financeiroDisponivel = usuario?.cargo === 'admin';
+  const [stats, setStats] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
@@ -80,76 +76,60 @@ export default function Dashboard() {
   const [dataInicio, setDataInicio] = useState(hojeISO);
   const [dataFim, setDataFim] = useState(hojeISO);
   const [abaDetalhe, setAbaDetalhe] = useState('alunos');
+  const [atualizacaoRelatorio, setAtualizacaoRelatorio] = useState(0);
   const [relatorio, setRelatorio] = useState(null);
   const [relatorioCarregando, setRelatorioCarregando] = useState(false);
   const [relatorioErro, setRelatorioErro] = useState('');
   const [baixandoPdf, setBaixandoPdf] = useState(false);
 
-  const carregarStats = useCallback(async () => {
-    try {
-      const [alunosRes, planosRes, matriculasRes] = await Promise.all([
-        api.get('/alunos'),
-        api.get('/planos'),
-        api.get('/matriculas'),
-      ]);
-      const alunos = alunosRes.data || [];
-      const planos = planosRes.data || [];
-      const matriculas = matriculasRes.data || [];
-
-      setMatriculasRaw(matriculas);
-      setStats({
-        total_alunos: alunos.length,
-        alunos_ativos: alunos.filter((a) => a.status === 'ativo').length,
-        total_planos: planos.length,
-        total_matriculas: matriculas.length,
-        matriculas_ativas: matriculas.filter((m) => m.status === 'ativo').length,
-      });
-    } catch {
-      setErro('Erro ao carregar estatísticas.');
-    } finally {
-      setCarregando(false);
+  const montarParamsRelatorio = useCallback(() => {
+    const params = { tipo: tipoRelatorio, periodo: periodoSelecionado };
+    if (periodoSelecionado === 'personalizado') {
+      params.dataInicio = dataInicio;
+      params.dataFim = dataFim;
     }
+    return params;
+  }, [tipoRelatorio, periodoSelecionado, dataInicio, dataFim]);
+
+  const atualizarRelatorio = useCallback(() => {
+    setAtualizacaoRelatorio((atualizacao) => atualizacao + 1);
   }, []);
 
-  const montarParamsRelatorio = useCallback(
-    (tipoOverride, periodoOverride, iniOverride, fimOverride) => {
-      const tipo = tipoOverride ?? tipoRelatorio;
-      const periodo = periodoOverride ?? periodoSelecionado;
-      const ini = iniOverride ?? dataInicio;
-      const fim = fimOverride ?? dataFim;
-
-      const params = { tipo, periodo };
-      if (periodo === 'personalizado') {
-        params.dataInicio = ini;
-        params.dataFim = fim;
-      }
-      return params;
-    },
-    [tipoRelatorio, periodoSelecionado, dataInicio, dataFim]
-  );
-
-  const carregarRelatorio = useCallback(
-    async (tipoOverride, periodoOverride, iniOverride, fimOverride) => {
-      const params = montarParamsRelatorio(tipoOverride, periodoOverride, iniOverride, fimOverride);
-      setRelatorioCarregando(true);
-      setRelatorioErro('');
-      try {
-        const res = await api.get('/relatorios', { params });
-        setRelatorio(res.data?.dados || null);
-      } catch (e) {
-        const msg = e?.response?.data?.mensagem || 'Erro ao carregar relatório gerencial.';
-        setRelatorioErro(msg);
-      } finally {
-        setRelatorioCarregando(false);
-      }
-    },
-    [montarParamsRelatorio]
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    api.get('/relatorios/resumo-dashboard', { signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) { setStats(data); setErro(''); } })
+      .catch(() => { if (!controller.signal.aborted) setErro('Erro ao carregar estatísticas.'); })
+      .finally(() => { if (!controller.signal.aborted) setCarregando(false); });
+    return () => controller.abort();
+  }, [atualizacaoRelatorio]);
 
   useEffect(() => {
-    carregarStats();
-    carregarRelatorio('geral', 'hoje', hojeISO, hojeISO);
-  }, [carregarStats, carregarRelatorio, hojeISO]);
+    window.addEventListener('focus', atualizarRelatorio);
+    return () => window.removeEventListener('focus', atualizarRelatorio);
+  }, [atualizarRelatorio]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setRelatorio(null);
+    setRelatorioErro('');
+    setRelatorioCarregando(true);
+
+    api.get('/relatorios', { params: montarParamsRelatorio(), signal: controller.signal })
+      .then((res) => {
+        if (!controller.signal.aborted) setRelatorio(res.data.dados);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) {
+          setRelatorioErro(e?.response?.data?.mensagem || 'Erro ao carregar relatório gerencial.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRelatorioCarregando(false);
+      });
+
+    return () => controller.abort();
+  }, [montarParamsRelatorio, atualizacaoRelatorio]);
 
   const handleTipoChange = (novoTipo) => {
     setTipoRelatorio(novoTipo);
@@ -159,15 +139,6 @@ export default function Dashboard() {
     else if (novoTipo === 'frequencia') setAbaDetalhe('frequencia');
     else if (novoTipo === 'planos') setAbaDetalhe('planos');
     else setAbaDetalhe('alunos');
-
-    carregarRelatorio(novoTipo, periodoSelecionado, dataInicio, dataFim);
-  };
-
-  const handlePeriodoChange = (novoPeriodo) => {
-    setPeriodoSelecionado(novoPeriodo);
-    if (novoPeriodo !== 'personalizado') {
-      carregarRelatorio(tipoRelatorio, novoPeriodo, dataInicio, dataFim);
-    }
   };
 
   const handleGerarPDF = async () => {
@@ -201,46 +172,18 @@ export default function Dashboard() {
     }
   };
 
-  const dadosFaturamentoMensal = (() => {
-    const meses = [
-      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
-    ];
-    const agrupado = {};
-
-    matriculasRaw.forEach((m) => {
-      if (!m.data_inicio) return;
-      const data = new Date(`${String(m.data_inicio).slice(0, 10)}T00:00:00`);
-      if (Number.isNaN(data.getTime())) return;
-      const mesNome = meses[data.getMonth()];
-      agrupado[mesNome] = (agrupado[mesNome] || 0) + (parseFloat(m.valor_pago) || 0);
-    });
-
-    const resultado = Object.keys(agrupado).map((mes) => ({
-      mes,
-      faturamento: agrupado[mes],
-    }));
-
-    return resultado.length > 0 ? resultado : [{ mes: 'Atual', faturamento: 0 }];
-  })();
-
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const faturamento = (stats?.valor_contratado || []).map(([anoMes, valor]) => ({
+    mes: `${meses[Number(anoMes.slice(5)) - 1]}/${anoMes.slice(0, 4)}`,
+    faturamento: valor,
+  }));
+  const dadosFaturamentoMensal = faturamento.length ? faturamento : [{ mes: 'Atual', faturamento: 0 }];
   const dadosStatus = [
-    {
-      status: 'Ativas',
-      quantidade: matriculasRaw.filter((m) => m.status === 'ativo').length,
-      cor: '#22c55e',
-    },
-    {
-      status: 'Vencidas',
-      quantidade: matriculasRaw.filter((m) => m.status === 'vencido').length,
-      cor: '#ef4444',
-    },
-    {
-      status: 'Canceladas',
-      quantidade: matriculasRaw.filter((m) => m.status === 'cancelado').length,
-      cor: '#64748b',
-    },
-  ];
+    ['Ativas', 'vigente', '#22c55e'],
+    ['Vencidas', 'vencida', '#ef4444'],
+    ['Futuras', 'futura', '#2563eb'],
+    ['Canceladas', 'cancelada', '#64748b'],
+  ].map(([status, codigo, cor]) => ({ status, quantidade: stats?.situacoes?.[codigo] ?? 0, cor }));
 
   if (carregando) {
     return (
@@ -286,7 +229,7 @@ export default function Dashboard() {
             Total de Alunos
           </h3>
           <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#1e293b' }}>
-            {stats.total_alunos}
+            {stats?.total_alunos ?? 0}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Alunos cadastrados</div>
         </div>
@@ -296,7 +239,7 @@ export default function Dashboard() {
             Planos Cadastrados
           </h3>
           <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#7c3aed' }}>
-            {stats.total_planos}
+            {stats?.total_planos ?? 0}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Planos disponíveis</div>
         </div>
@@ -306,7 +249,7 @@ export default function Dashboard() {
             Matrículas Ativas
           </h3>
           <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#0891b2' }}>
-            {stats.matriculas_ativas}
+            {stats?.situacoes?.vigente ?? 0}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Com plano vigente</div>
         </div>
@@ -323,7 +266,7 @@ export default function Dashboard() {
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: '#1e293b', fontSize: '1rem' }}>
-            Evolução de Receita (R$)
+            Valor Contratado por Mês (R$)
           </h3>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
@@ -337,7 +280,7 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="mes" stroke="#64748b" fontSize={12} />
                 <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip formatter={(value) => [formatarMoeda(value), 'Receita']} />
+                <Tooltip formatter={(value) => [formatarMoeda(value), 'Valor contratado']} />
                 <Area
                   type="monotone"
                   dataKey="faturamento"
@@ -403,7 +346,7 @@ export default function Dashboard() {
               onChange={(e) => handleTipoChange(e.target.value)}
             >
               <option value="geral">Relatório Geral (Tudo)</option>
-              <option value="financeiro">Financeiro</option>
+              {financeiroDisponivel && <option value="financeiro">Financeiro</option>}
               <option value="alunos">Alunos</option>
               <option value="matriculas">Matrículas</option>
               <option value="frequencia">Frequência</option>
@@ -414,7 +357,7 @@ export default function Dashboard() {
               aria-label="Período de consulta"
               className="relatorios-select"
               value={periodoSelecionado}
-              onChange={(e) => handlePeriodoChange(e.target.value)}
+              onChange={(e) => setPeriodoSelecionado(e.target.value)}
             >
               <option value="hoje">Hoje</option>
               <option value="esta_semana">Esta semana</option>
@@ -452,7 +395,7 @@ export default function Dashboard() {
             <button
               type="button"
               className="relatorios-btn relatorios-btn-secundario"
-              onClick={() => carregarRelatorio(tipoRelatorio, periodoSelecionado, dataInicio, dataFim)}
+              onClick={atualizarRelatorio}
               disabled={relatorioCarregando}
             >
               {relatorioCarregando ? 'Consultando...' : 'Atualizar'}
@@ -471,7 +414,7 @@ export default function Dashboard() {
               type="button"
               className="relatorios-btn relatorios-btn-primario"
               onClick={handleGerarPDF}
-              disabled={baixandoPdf || relatorioCarregando}
+              disabled={baixandoPdf || relatorioCarregando || !relatorio}
             >
               {baixandoPdf ? 'Gerando PDF...' : 'Gerar PDF'}
             </button>
@@ -542,7 +485,7 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {(tipoRelatorio === 'geral' || tipoRelatorio === 'financeiro') && (
+                {financeiroDisponivel && (tipoRelatorio === 'geral' || tipoRelatorio === 'financeiro') && (
                   <div className="relatorio-kpi-card" style={{ borderLeftColor: '#059669' }}>
                     <div className="relatorio-kpi-label">
                       {financeiro?.disponivel ? 'Total Recebido' : 'Valor Contratado (Período)'}
@@ -555,7 +498,7 @@ export default function Dashboard() {
                     <div className="relatorio-kpi-sub">
                       {financeiro?.disponivel
                         ? `${financeiro.confirmados} confirmado(s)`
-                        : 'Sem tabela de pagamentos'}
+                        : 'Recebimentos indisponíveis'}
                     </div>
                   </div>
                 )}
@@ -602,7 +545,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   className={`relatorio-tab ${abaDetalhe === 'financeiro' ? 'ativa' : ''}`}
-                  onClick={() => setAbaDetalhe('financeiro')}
+                  onClick={() => setAbaDetalhe('financeiro')} disabled={!financeiroDisponivel}
                 >
                   Financeiro
                 </button>
@@ -660,10 +603,10 @@ export default function Dashboard() {
                           <tr key={m.id}>
                             <td>{m.aluno_nome}</td>
                             <td>{m.plano_nome}</td>
-                            <td>{formatarDataBR(m.data_inicio)}</td>
-                            <td>{formatarDataBR(m.data_vencimento)}</td>
+                            <td>{formatarDataBR(m.data_inicio?.slice(0, 10))}</td>
+                            <td>{formatarDataBR(m.data_vencimento?.slice(0, 10))}</td>
                             <td>{formatarMoeda(m.valor_pago)}</td>
-                            <td>{m.status}</td>
+                            <td>{(m.situacao_efetiva || m.status).replaceAll('_', ' ')}</td>
                           </tr>
                         ))}
                       </tbody>

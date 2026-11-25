@@ -6,7 +6,7 @@ const Usuario = require('../models/Usuario');
 
 // Listar professores/usuários (apenas admin)
 router.get('/', authMiddleware, isAdminMiddleware, (req, res) => {
-  Usuario.listar((err, usuarios) => {
+  Usuario.listar(req.usuario.academia_id, (err, usuarios) => {
     if (err) {
       return res.status(500).json({ mensagem: 'Erro ao listar usuários.' });
     }
@@ -31,7 +31,7 @@ router.post('/', authMiddleware, isAdminMiddleware, (req, res) => {
     }
 
     Usuario.create(
-      { nome, email_ou_matricula, senha, cargo: 'professor' },
+      { nome, email_ou_matricula, senha, cargo: 'professor', academia_id: req.usuario.academia_id },
       (err, result) => {
         if (err) {
           return res.status(500).json({ mensagem: 'Erro ao cadastrar professor.' });
@@ -59,10 +59,11 @@ router.patch('/:id/status', authMiddleware, isAdminMiddleware, (req, res) => {
     return res.status(400).json({ mensagem: 'Status inválido. Use "ativo" ou "inativo".' });
   }
 
-  Usuario.atualizarStatus(id, status, (err) => {
+  Usuario.atualizarStatus(id, status, req.usuario.academia_id, (err, alterados) => {
     if (err) {
       return res.status(500).json({ mensagem: 'Erro ao atualizar status.' });
     }
+    if (!alterados) return res.status(404).json({ mensagem: 'Professor não encontrado.' });
     res.json({ mensagem: 'Status atualizado com sucesso.' });
   });
 });

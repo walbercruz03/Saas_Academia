@@ -1,0 +1,32 @@
+services:
+  db:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure a senha PostgreSQL de produção}
+  backend:
+    image: wcfit-backend:${WCFIT_RELEASE:?Informe a versão desta release}
+    ports: !reset []
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wcfit_admin}:${POSTGRES_PASSWORD:?Configure a senha PostgreSQL de produção}@db:5432/${POSTGRES_DB:-wcfit}
+      SUPER_ADMIN_TOTP_KEY: ${SUPER_ADMIN_TOTP_KEY:?Configure a chave TOTP de produção}
+      SUPER_ADMIN_ORIGEM_LOCAL: ""
+      SUPER_ADMIN_SEM_TOTP_LOCAL: "false"
+      APP_CORS_ORIGIN: https://${WCFIT_DOMAIN:?Informe o domínio de produção}
+      IDEMPOTENCIA_HMAC_VERSAO: ${IDEMPOTENCIA_HMAC_VERSAO:?Configure a versão HMAC}
+      IDEMPOTENCIA_HMAC_CHAVES: ${IDEMPOTENCIA_HMAC_CHAVES:?Configure as chaves HMAC}
+      LEGAL_DOCUMENTOS_EXIGIDOS: "true"
+      LEGAL_DOCUMENTOS_APROVADOS: ${LEGAL_DOCUMENTOS_APROVADOS:-false}
+      CADASTRO_PUBLICO_ATIVO: "false"
+      ASAAS_SANDBOX_ATIVO: "false"
+      CADASTRO_EMAIL_API_KEY: ""
+      ASAAS_SANDBOX_API_KEY: ""
+      ASAAS_SANDBOX_WEBHOOK_TOKEN: ""
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 7s
+      retries: 3
+      start_period: 15s
+  frontend:
+    image: wcfit-frontend:${WCFIT_RELEASE:?Informe a versão desta release}
+    ports: !override ["127.0.0.1:8080:80"]

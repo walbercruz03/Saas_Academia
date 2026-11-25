@@ -35,6 +35,27 @@ export function AuthProvider({ children }) {
     return () => { mounted = false; };
   }, []);
 
+  const professorId = usuario?.cargo === 'professor' ? usuario.id : null;
+  useEffect(() => {
+    if (!professorId) return;
+    const controle = new AbortController();
+    const atualizar = () => api.get('/auth/permissoes', { signal: controle.signal })
+      .then(({ data }) => {
+        if (controle.signal.aborted) return;
+        setUsuario((atual) => atual?.id === professorId ? { ...atual, permissoes: data.permissoes } : atual);
+      }).catch(() => {});
+    atualizar();
+    window.addEventListener('focus', atualizar);
+    window.addEventListener('wcfit:permissao-negada', atualizar);
+    const timer = window.setInterval(atualizar, 15000);
+    return () => {
+      controle.abort();
+      window.removeEventListener('focus', atualizar);
+      window.removeEventListener('wcfit:permissao-negada', atualizar);
+      window.clearInterval(timer);
+    };
+  }, [professorId]);
+
   const login = async (emailOuMatricula, senha) => {
     const res = await api.post('/auth/login', {
       email_ou_matricula: emailOuMatricula,

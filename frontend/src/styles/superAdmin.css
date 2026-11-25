@@ -1,0 +1,59 @@
+.sa-inicio { padding: 2rem; }
+.sa-painel .main-content { min-width: 0; }
+.sa-painel .sidebar-nav { overflow-y: auto; }
+.sa-painel .sa-menu-futuro {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem .85rem;
+  opacity: .78;
+}
+.sa-menu-futuro small { display: block; }
+.sa-painel .sa-cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.sa-cabecalho h1 { margin: .25rem 0; }
+.sa-painel .stat-card h3 { margin: 0; font-size: inherit; }
+.sa-painel .stat-card strong { font-size: 1.75rem; }
+.sa-painel .stat-card span { color: var(--text-body, #475569); }
+.sa-painel .relatorios-btn-secundario { color: var(--text-body, #475569); }
+.sa-painel .relatorios-btn-secundario:hover:not(:disabled) { color: var(--text-main, #1e293b); }
+.sa-filtros { margin-bottom: 1rem; }
+.sa-filtros label { display: grid; gap: .35rem; }
+.sa-filtros button { align-self: end; }
+.sa-tabela { overflow-x: auto; }
+.sa-tabela th[scope="row"] { text-align: left; }
+.sa-paginacao { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin-top: 1rem; flex-wrap: wrap; }
+.sa-painel .sa-abrir-menu, .sa-fundo-menu { display: none; }
+
+@media (max-width: 768px) {
+  .sa-painel .sidebar.open { position: fixed; display: flex; height: 100dvh; width: min(260px, 85vw); }
+  .sa-painel .main-content { width: 100%; padding: 1rem; }
+  .sa-painel .sa-abrir-menu { display: inline-flex; margin-bottom: .5rem; }
+  .sa-painel .sa-fundo-menu {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    border: 0;
+    background: rgb(6 26 62 / .55);
+  }
+  .sa-painel .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+}
+
+.sa-painel .sa-dialogo {
+  margin: auto;
+  width: min(30rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  padding: clamp(1rem, 4vw, 1.75rem);
+  border: 0;
+  border-radius: var(--radius, 12px);
+  background: var(--bg-card, #fff);
+  color: var(--text-body, #475569);
+  box-shadow: var(--shadow, 0 4px 12px rgb(15 23 42 / .12));
+}
+.sa-dialogo::backdrop { background: rgb(6 26 62 / .55); }
+.sa-dialogo h2 { margin-top: 0; }
+.sa-acoes-dialogo { display: flex; justify-content: flex-end; gap: .75rem; flex-wrap: wrap; }
+.sa-acoes-academia { display: flex; gap: .4rem; flex-wrap: wrap; }
+.sa-dialogo > .stat-card { margin-block: .75rem; }
+.sa-dialogo input[type="checkbox"] { width: auto; }

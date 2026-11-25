@@ -88,7 +88,8 @@ const Exercicio = {
         gm.id AS grupo_id,
         gm.nome AS grupo_nome
       FROM exercicio_grupos_musculares egm
-      INNER JOIN grupos_musculares gm ON gm.id = egm.grupo_muscular_id
+      INNER JOIN exercicios e ON e.id = egm.exercicio_id
+      INNER JOIN grupos_musculares gm ON gm.id = egm.grupo_muscular_id AND gm.academia_id IN (0, e.academia_id)
       WHERE egm.exercicio_id IN (${placeholders})
       ORDER BY gm.nome ASC
     `;
@@ -121,20 +122,14 @@ const Exercicio = {
   },
 
   listar: ({ busca = '', equipamento = '', dificuldade = '', grupoMuscularId = '', apenasAtivos = false, academia_id } = {}, callback) => {
-    const params = [];
-    const conditions = [];
-
-    // Always filter by academia_id if provided
-    if (academia_id && String(academia_id).trim() !== '') {
-      conditions.push(`e.academia_id = ?`);
-      params.push(Number(academia_id));
-    }
+    const params = [academia_id];
+    const conditions = ['e.academia_id IN (0, ?)'];
 
     let sql = `SELECT DISTINCT e.* FROM exercicios e`;
 
     if (grupoMuscularId && String(grupoMuscularId).trim() !== '') {
       sql += ` INNER JOIN exercicio_grupos_musculares egm_filtro ON egm_filtro.exercicio_id = e.id`;
-      conditions.push(`egm_filtro.grupo_muscular_id = ?`);
+      conditions.push(`egm_filtro.grupo_muscular_id IN (SELECT id FROM grupos_musculares WHERE id = ? AND academia_id IN (0, e.academia_id))`);
       params.push(Number(grupoMuscularId));
     }
 
@@ -166,8 +161,8 @@ const Exercicio = {
     });
   },
 
-  buscarPorId: (id, callback) => {
-    db.get(`SELECT * FROM exercicios WHERE id = ?`, [id], (err, row) => {
+  buscarPorId: (id, academiaId, callback) => {
+    db.get(`SELECT * FROM exercicios WHERE id = ? AND academia_id IN (0, ?)`, [id, academiaId], (err, row) => {
       if (err) return callback(err);
       if (!row) return callback(null, null);
       Exercicio.anexarGrupos([row], (grupoErr, lista) => {
@@ -216,7 +211,7 @@ const Exercicio = {
 
       Exercicio.sincronizarGrupos(novoId, grupos_principais, grupos_secundarios, (syncErr) => {
         if (syncErr) return callback(syncErr);
-        Exercicio.buscarPorId(novoId, callback);
+        Exercicio.buscarPorId(novoId, academia_id, callback);
       });
     });
   },
@@ -238,8 +233,8 @@ const Exercicio = {
 
     const sql = `
       UPDATE exercicios
-      SET nome = ?, descricao = ?, instrucoes = ?, equipamento = ?, dificuldade = ?, imagem_url = ?, video_url = ?, ativo = ?, academia_id = ?
-      WHERE id = ?
+      SET nome = ?, descricao = ?, instrucoes = ?, equipamento = ?, dificuldade = ?, imagem_url = ?, video_url = ?, ativo = ?
+      WHERE id = ? AND academia_id = ?
     `;
 
     const params = [
@@ -251,21 +246,21 @@ const Exercicio = {
       imagem_url ? imagem_url.trim() : null,
       video_url ? video_url.trim() : null,
       ativo === false || ativo === 0 ? 0 : 1,
-      academia_id,
       id,
+      academia_id,
     ];
 
-    db.run(sql, params, (err) => {
-      if (err) return callback(err);
+    db.run(sql, params, function (err) {
+      if (err || !this.changes) return callback(err, null);
       Exercicio.sincronizarGrupos(id, grupos_principais, grupos_secundarios, (syncErr) => {
         if (syncErr) return callback(syncErr);
-        Exercicio.buscarPorId(id, callback);
+        Exercicio.buscarPorId(id, academia_id, callback);
       });
     });
   },
 
-  deletar: (id, callback) => {
-    db.run(`DELETE FROM exercicios WHERE id = ?`, [id], function (err) {
+  deletar: (id, academiaId, callback) => {
+    db.run(`DELETE FROM exercicios WHERE id = ? AND academia_id = ?`, [id, academiaId], function (err) {
       if (err) return callback(err);
       callback(null, {
         deleted: true,

@@ -8,6 +8,7 @@ router.use(authMiddleware);
 
 // Rotas genéricas por tipo e período (ex: ?tipo=financeiro&periodo=este_mes ou personalizado)
 router.get('/', controller.obterRelatorio);
+router.get('/resumo-dashboard', controller.resumoDashboard);
 router.get('/pdf', isAdminMiddleware, controller.gerarPDFRelatorio);
 
 // Rotas específicas mantidas por compatibilidade

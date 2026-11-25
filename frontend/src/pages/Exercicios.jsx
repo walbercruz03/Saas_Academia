@@ -1,3 +1,5 @@
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -20,6 +22,7 @@ const estadoInicialForm = {
 };
 
 export default function Exercicios() {
+  const { usuario: usuarioAtual } = useAuth();
   const [exercicios, setExercicios] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [niveisDificuldade, setNiveisDificuldade] = useState([]);
@@ -336,7 +339,7 @@ export default function Exercicios() {
         <div className="treinamento-acoes-header">
           <button
             type="button"
-            onClick={abrirNovoModal}
+            disabled={!podeAcessar(usuarioAtual,'exercicios','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
             + Novo Exercício
@@ -529,8 +532,8 @@ export default function Exercicios() {
                         <div className="treinamento-acoes-linha">
                           <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Visualizar</button>
                           {podeEditar && <>
-                            <button type="button" onClick={() => abrirEditarModal(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Editar</button>
-                            <button type="button" onClick={() => handleExcluir(ex)} className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm">Excluir</button>
+                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','editar')} onClick={() => abrirEditarModal(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Editar</button>
+                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','excluir')} onClick={() => handleExcluir(ex)} className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm">Excluir</button>
                           </>}
                           {ehGlobal && academiaId != null && academiaId > 0 && (
                             <button type="button" disabled={salvando} onClick={() => duplicarExercicio(ex)} className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm">Duplicar</button>

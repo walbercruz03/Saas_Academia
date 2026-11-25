@@ -7,5 +7,6 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: false,
+    proxy: { '/api/super-admin': 'http://localhost:3001', '/api/convites': 'http://localhost:3001' },
   },
 });

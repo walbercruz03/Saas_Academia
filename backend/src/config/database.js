@@ -1,8 +1,14 @@
 const { Pool } = require("pg");
 const path = require("path");
+const logFalha = require("../utils/logFalha");
 
 const isExplicitSqlite = process.env.DB_CLIENT === "sqlite" || process.env.USE_SQLITE === "true";
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+
+const producao = process.env.NODE_ENV === 'production';
+if (producao && (isExplicitSqlite || !hasDatabaseUrl)) {
+  throw new Error('O PostgreSQL deve estar configurado em produção.');
+}
 
 let useSqlite = isExplicitSqlite || !hasDatabaseUrl;
 let sqliteDb = null;
@@ -12,7 +18,7 @@ function getSqliteDb() {
     const sqlite3 = require("sqlite3").verbose();
     const dbPath = path.resolve(__dirname, "..", "database.sqlite");
     sqliteDb = new sqlite3.Database(dbPath, (err) => {
-      if (err) console.error("Erro ao conectar ao SQLite:", err.message);
+      if (err) logFalha("Erro ao conectar ao SQLite", err);
       else console.log("Conectado ao banco de dados SQLite.");
     });
   }
@@ -20,18 +26,21 @@ function getSqliteDb() {
 }
 
 let pool = null;
+let pronto = Promise.resolve();
 if (!useSqlite) {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     connectionTimeoutMillis: 3000,
   });
+  pool.on("error", (erro) => logFalha("Conexão PostgreSQL ociosa encerrada", erro));
 
-  pool.query("SELECT 1")
+  pronto = pool.query("SELECT 1")
     .then(() => {
       console.log("Conectado ao banco de dados PostgreSQL.");
     })
-    .catch((err) => {
-      console.warn("PostgreSQL indisponível (" + err.message + "). Ativando fallback para SQLite local.");
+    .catch(() => {
+      if (producao) throw new Error("PostgreSQL indisponível. Inicialização interrompida.");
+      console.warn("PostgreSQL indisponível. Ativando fallback para SQLite local.");
       useSqlite = true;
       getSqliteDb();
     });
@@ -79,7 +88,28 @@ const runQueue = (fn) => { const p = fila.then(fn, fn); fila = p.catch(() => {})
 
 const db = {
   pool,
+  pronto,
   get isSqlite() { return useSqlite; },
+  leitor() {
+    return useSqlite ? db : db.executorPostgres(pool);
+  },
+  executorPostgres(cliente) {
+    const consulta = (sql, params) => cliente.query(traduzirSql(sql), params);
+    return {
+      get(sql, params, callback) {
+        consulta(sql, params).then((r) => callback(null, r.rows[0]), callback);
+      },
+      all(sql, params, callback) {
+        consulta(sql, params).then((r) => callback(null, r.rows), callback);
+      },
+      run(sql, params, callback) {
+        const query = /^\s*INSERT\s+INTO\b/i.test(sql) && !/\bRETURNING\b/i.test(sql)
+          ? sql.replace(/;?\s*$/, ' RETURNING id') : sql;
+        consulta(query, params).then(
+          (r) => callback.call({ lastID: r.rows[0]?.id, changes: r.rowCount }, null), callback);
+      },
+    };
+  },
   serialize(fn) {
     if (useSqlite) {
       getSqliteDb().serialize(fn);
@@ -114,12 +144,12 @@ const db = {
             return;
           } catch (e2) {
             if (cb) cb.call({ lastID: null, changes: 0 }, e2);
-            else console.error("Erro SQL (run):", e2.message);
+            else logFalha("Erro SQL (run)", e2);
             return;
           }
         }
         if (cb) cb.call({ lastID: null, changes: 0 }, err);
-        else console.error("Erro SQL (run):", err.message);
+        else logFalha("Erro SQL (run)", err);
       }
     });
     return this;
@@ -132,7 +162,7 @@ const db = {
     }
     runQueue(async () => {
       try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows[0]); }
-      catch (err) { if (cb) cb(err, undefined); else console.error("Erro SQL (get):", err.message); }
+      catch (err) { if (cb) cb(err, undefined); else logFalha("Erro SQL (get)", err); }
     });
     return this;
   },
@@ -144,7 +174,7 @@ const db = {
     }
     runQueue(async () => {
       try { const r = await pool.query(traduzirSql(sql), v); if (cb) cb(null, r.rows || []); }
-      catch (err) { if (cb) cb(err, []); else console.error("Erro SQL (all):", err.message); }
+      catch (err) { if (cb) cb(err, []); else logFalha("Erro SQL (all)", err); }
     });
     return this;
   },

@@ -12,6 +12,8 @@ router.get('/:id', authMiddleware, matriculaController.findById);
 
 // Criar matrícula (apenas admin)
 router.post('/', authMiddleware, isAdminMiddleware, matriculaController.create);
+router.get('/:id/renovacao', authMiddleware, isAdminMiddleware, matriculaController.previaRenovacao);
+router.post('/renovacoes', authMiddleware, isAdminMiddleware, matriculaController.renovar);
 
 // Atualizar matrícula (apenas admin)
 router.put('/:id', authMiddleware, isAdminMiddleware, matriculaController.atualizar);

@@ -1,3 +1,5 @@
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -38,6 +40,7 @@ const estadoInicialForm = {
 };
 
 export default function ModelosTreino() {
+  const { usuario: usuarioAtual } = useAuth();
   const [modelos, setModelos] = useState([]);
   const [modalidades, setModalidades] = useState([]);
   const [niveis, setNiveis] = useState([]);
@@ -480,7 +483,7 @@ export default function ModelosTreino() {
         <div className="treinamento-acoes-header">
           <button
             type="button"
-            onClick={abrirNovoModal}
+            disabled={!podeAcessar(usuarioAtual,'modelos','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
             + Novo Modelo
@@ -646,7 +649,7 @@ export default function ModelosTreino() {
 
                   <button
                     type="button"
-                    onClick={() => handleDuplicarModelo(modelo)}
+                    disabled={!podeAcessar(usuarioAtual,'modelos','criar')} onClick={() => handleDuplicarModelo(modelo)}
                     className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
                     Duplicar
@@ -654,7 +657,7 @@ export default function ModelosTreino() {
 
                   {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
                     type="button"
-                    onClick={() => abrirEditarModal(modelo)}
+                    disabled={!podeAcessar(usuarioAtual,'modelos','editar')} onClick={() => abrirEditarModal(modelo)}
                     className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
                     Editar
@@ -662,7 +665,7 @@ export default function ModelosTreino() {
 
                   {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
                     type="button"
-                    onClick={() => handleExcluirModelo(modelo)}
+                    disabled={!podeAcessar(usuarioAtual,'modelos','excluir')} onClick={() => handleExcluirModelo(modelo)}
                     className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                   >
                     Excluir

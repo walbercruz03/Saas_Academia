@@ -26,25 +26,23 @@ class Plano {
   }
 
   static listar({ academia_id }, callback) {
-    const conditions = academia_id ? `WHERE academia_id = ?` : '';
-    const params = academia_id ? [academia_id] : [];
-    const sql = `SELECT * FROM planos ${conditions} ORDER BY criado_em DESC`;
-    db.all(sql, params, callback);
+    const sql = `SELECT * FROM planos WHERE academia_id = ? ORDER BY criado_em DESC`;
+    db.all(sql, [academia_id], callback);
   }
 
-  static findById(id, callback) {
-    const sql = `SELECT * FROM planos WHERE id = ?`;
-    db.get(sql, [id], callback);
+  static findById(id, academiaId, callback) {
+    const sql = `SELECT * FROM planos WHERE id = ? AND academia_id = ?`;
+    db.get(sql, [id, academiaId], callback);
   }
 
-  static atualizar(id, { nome, descricao, preco, duracao_meses, status }, callback) {
-    const sql = `UPDATE planos SET nome = ?, descricao = ?, preco = ?, duracao_meses = ?, status = ? WHERE id = ?`;
-    db.run(sql, [nome, descricao, preco, duracao_meses, status, id], callback);
+  static atualizar(id, { nome, descricao, preco, duracao_meses, status }, academiaId, callback) {
+    const sql = `UPDATE planos SET nome = ?, descricao = ?, preco = ?, duracao_meses = ?, status = ? WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [nome, descricao, preco, duracao_meses, status, id, academiaId], callback);
   }
 
-  static excluir(id, callback) {
-    const sql = `DELETE FROM planos WHERE id = ?`;
-    db.run(sql, [id], callback);
+  static excluir(id, academiaId, callback) {
+    const sql = `DELETE FROM planos WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [id, academiaId], callback);
   }
 }
 

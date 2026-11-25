@@ -1,9 +1,14 @@
+import { Dumbbell, Users, ClipboardList, Library, Search, Plus, Save, ArrowUp, ArrowDown, Trash2, MessageCircle, ArrowLeft } from 'lucide-react';
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
 import '../styles/treino.css';
 import '../styles/treinamento.css';
+
+const DIVISOES = ['Treino A (Superior)', 'Treino B (Inferior)', 'Treino A (Geral)', 'Treino B (Geral)', 'Treino C (Geral)', 'Treino C (Peito e Tríceps)', 'Treino D (Costas e Bíceps)', 'Treino E (Pernas e Glúteos)', 'Treino F (Ombros e Abdômen)', 'Full Body', 'Treino Funcional', 'Treino Aeróbico'];
 
 const criarItemFicha = (ordem = 1, base = {}) => ({
   exercicio_id: base.exercicio_id ? String(base.exercicio_id) : '',
@@ -19,6 +24,7 @@ const criarItemFicha = (ordem = 1, base = {}) => ({
 const estadoInicialExercicios = [criarItemFicha(1)];
 
 export default function Treinos() {
+  const { usuario: usuarioAtual } = useAuth();
   const [treinos, setTreinos] = useState([]);
   const [alunos, setAlunos] = useState([]);
   const [bibliotecaExercicios, setBibliotecaExercicios] = useState([]);
@@ -26,6 +32,8 @@ export default function Treinos() {
 
   const [alunoId, setAlunoId] = useState('');
   const [divisao, setDivisao] = useState('Treino A (Superior)');
+  const [personalizado, setPersonalizado] = useState(false);
+  const [buscaTreino, setBuscaTreino] = useState('');
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState('');
   const [buscaExercicio, setBuscaExercicio] = useState('');
   const [exercicios, setExercicios] = useState(estadoInicialExercicios);
@@ -90,7 +98,7 @@ export default function Treinos() {
   const adicionarLinhaExercicio = (exercicioCatalogo = null) => {
     setExercicios((prev) =>
       reordenarLista([
-        ...prev,
+        ...(exercicioCatalogo && prev.length === 1 && !prev[0].nome && !prev[0].exercicio_id ? [] : prev),
         criarItemFicha(prev.length + 1, {
           exercicio_id: exercicioCatalogo ? exercicioCatalogo.id : '',
           nome: exercicioCatalogo ? exercicioCatalogo.nome : '',
@@ -151,6 +159,7 @@ export default function Treinos() {
 
     if (modelo.divisao) {
       setDivisao(modelo.divisao);
+      setPersonalizado(!DIVISOES.includes(modelo.divisao));
     }
 
     const itensModelo = Array.isArray(modelo.exercicios) ? modelo.exercicios : [];
@@ -183,6 +192,8 @@ export default function Treinos() {
       return;
     }
 
+    if (!divisao.trim()) { setErro('Informe a divisão do treino.'); return; }
+
     const exerciciosNormalizados = reordenarLista(exercicios)
       .filter((item) => String(item.nome || '').trim() !== '')
       .map((item) => ({
@@ -205,13 +216,14 @@ export default function Treinos() {
     try {
       await api.post('/treinos', {
         aluno_id: alunoId,
-        divisao,
+        divisao: divisao.trim(),
         exercicios: exerciciosNormalizados,
       });
 
       setSucesso('Ficha de treino cadastrada com sucesso!');
       setAlunoId('');
       setDivisao('Treino A (Superior)');
+      setPersonalizado(false);
       setModeloSelecionadoId('');
       setExercicios([criarItemFicha(1)]);
       carregarDados();
@@ -277,14 +289,19 @@ export default function Treinos() {
     return `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(mensagem)}`;
   };
 
+  const treinosFiltrados = treinos.filter(t => {
+    const aluno = buscarAlunoPorTreino(t);
+    return `${t.divisao || ''} ${aluno?.nome || aluno?.name || ''}`.toLowerCase().includes(buscaTreino.trim().toLowerCase());
+  });
+
   return (
-    <div className="page-container treinamento-page">
+    <div className="page-container treinamento-page treinos-modernos">
       <div className="page-header">
         <div>
           <h2>Treinos dos Alunos</h2>
           <p>Prescrição, montagem com biblioteca de exercícios e envio de fichas para alunos</p>
         </div>
-        <Link to="/dashboard" className="btn-voltar">← Voltar</Link>
+        <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} /> Voltar</Link>
       </div>
 
       {erro && (
@@ -299,8 +316,16 @@ export default function Treinos() {
         </div>
       )}
 
+      <div className="treinamento-resumo-grid">
+        {[[ClipboardList, 'Fichas cadastradas', treinos.length], [Users, 'Alunos com treino', new Set(treinos.map(t => t.aluno_id ?? t.alunoId).filter(id => id != null).map(String)).size], [Dumbbell, 'Exercícios disponíveis', bibliotecaExercicios.length], [Library, 'Modelos disponíveis', modelosTreino.length]].map(([Icone, titulo, valor]) => (
+          <div className="form-card treinamento-stat-card" key={titulo}>
+            <Icone size={22} /><span className="treinamento-stat-label">{titulo}</span>
+            <strong className="treinamento-stat-valor">{valor}</strong>
+          </div>
+        ))}
+      </div>
       <div className="form-card">
-        <h3>Nova Ficha de Treino</h3>
+        <h3 className="treino-titulo"><ClipboardList size={22} /> Nova Ficha de Treino</h3>
 
         <form onSubmit={handleSubmit} className="form-grid">
           <div className="campo">
@@ -316,14 +341,16 @@ export default function Treinos() {
           </div>
 
           <div className="campo">
-            <label>Divisão / Nome do Treino</label>
-            <input
-              type="text"
-              value={divisao}
-              onChange={(e) => setDivisao(e.target.value)}
-              placeholder="Ex: Treino A - Membros Superiores"
-              required
-            />
+            <label htmlFor="divisao-treino">Divisão / Nome do Treino</label>
+            <select id="divisao-treino" value={personalizado ? '__personalizado' : divisao} onChange={e => {
+              const custom = e.target.value === '__personalizado';
+              setPersonalizado(custom);
+              setDivisao(custom ? '' : e.target.value);
+            }} required>
+              {DIVISOES.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+              <option value="__personalizado">Personalizado</option>
+            </select>
+            {personalizado && <input aria-label="Nome personalizado" value={divisao} onChange={e => setDivisao(e.target.value)} placeholder="Nome personalizado do treino" required />}
           </div>
 
           {modelosTreino.length > 0 && (
@@ -376,7 +403,7 @@ export default function Treinos() {
           </div>
 
           <div className="exercicios-container">
-            <h4>Exercícios da Ficha (Ordenação, Séries, Repetições, Carga, Descanso e Observações)</h4>
+            <h4>Exercícios da ficha ({exercicios.length})</h4>
 
             {exercicios.map((ex, index) => (
               <div key={index} className="treinamento-item-box">
@@ -391,7 +418,7 @@ export default function Treinos() {
                       title="Mover para cima"
                       className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                     >
-                      ↑
+                      <ArrowUp size={16} />
                     </button>
                     <button
                       type="button"
@@ -400,7 +427,7 @@ export default function Treinos() {
                       title="Mover para baixo"
                       className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                     >
-                      ↓
+                      <ArrowDown size={16} />
                     </button>
                     {exercicios.length > 1 && (
                       <button
@@ -408,14 +435,15 @@ export default function Treinos() {
                         onClick={() => removerLinhaExercicio(index)}
                         className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                       >
-                        X
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </div>
                 </div>
 
                 <div className="exercicio-row">
-                  <select
+                  <label className="treino-campo-label">Biblioteca
+<select
                     value={ex.exercicio_id}
                     onChange={(e) => selecionarExercicioDaBiblioteca(index, e.target.value)}
                     aria-label="Selecionar exercício da biblioteca"
@@ -426,48 +454,54 @@ export default function Treinos() {
                         {itemBib.nome} {itemBib.equipamento ? `(${itemBib.equipamento})` : ''}
                       </option>
                     ))}
-                  </select>
+                  </select></label>
 
-                  <input
+                  <label className="treino-campo-label">Nome do Exercício
+<input
                     type="text"
                     placeholder="Nome do Exercício"
                     value={ex.nome}
                     onChange={(e) => atualizarExercicio(index, 'nome', e.target.value)}
                     required
-                  />
-                  <input
+                  /></label>
+                  <label className="treino-campo-label">Séries
+<input
                     type="text"
                     placeholder="Séries"
                     value={ex.series}
                     onChange={(e) => atualizarExercicio(index, 'series', e.target.value)}
-                  />
-                  <input
+                  /></label>
+                  <label className="treino-campo-label">Repetições
+<input
                     type="text"
                     placeholder="Repetições"
                     value={ex.repeticoes}
                     onChange={(e) => atualizarExercicio(index, 'repeticoes', e.target.value)}
-                  />
-                  <input
+                  /></label>
+                  <label className="treino-campo-label">Carga
+<input
                     type="text"
                     placeholder="Carga"
                     value={ex.carga}
                     onChange={(e) => atualizarExercicio(index, 'carga', e.target.value)}
-                  />
+                  /></label>
                 </div>
 
                 <div className="treinamento-item-campos">
-                  <input
+                  <label className="treino-campo-label">Descanso
+<input
                     type="text"
                     placeholder="Descanso (ex: 60s, 1min30)"
                     value={ex.descanso}
                     onChange={(e) => atualizarExercicio(index, 'descanso', e.target.value)}
-                  />
-                  <input
+                  /></label>
+                  <label className="treino-campo-label">Observações
+<input
                     type="text"
                     placeholder="Observações (cadência, execução, ajuste...)"
                     value={ex.observacao}
                     onChange={(e) => atualizarExercicio(index, 'observacao', e.target.value)}
-                  />
+                  /></label>
                 </div>
               </div>
             ))}
@@ -477,36 +511,40 @@ export default function Treinos() {
               onClick={() => adicionarLinhaExercicio(null)}
               className="treinamento-btn treinamento-btn--primario"
             >
-              + Adicionar Exercício
+              <Plus size={17} /> Adicionar Exercício
             </button>
           </div>
 
           <div className="campo-full">
             <button
               type="submit"
-              disabled={carregando}
+              disabled={!podeAcessar(usuarioAtual,'treinos','criar') || carregando}
               className="treinamento-btn treinamento-btn--escuro"
             >
-              {carregando ? 'Salvando...' : 'Salvar Ficha de Treino'}
+              <Save size={17} /> {carregando ? 'Salvando...' : 'Salvar Ficha de Treino'}
             </button>
           </div>
         </form>
       </div>
 
-      <h3>Treinos Cadastrados</h3>
+      <div className="treino-lista-topo">
+        <h3>Treinos Cadastrados ({treinosFiltrados.length})</h3>
+        <label className="treino-busca"><Search size={18} /><input type="text" aria-label="Buscar fichas" placeholder="Buscar aluno ou treino..." value={buscaTreino} onChange={e => setBuscaTreino(e.target.value)} /></label>
+      </div>
 
-      {treinos.length === 0 ? (
-        <div>Nenhum treino cadastrado.</div>
+      {treinosFiltrados.length === 0 ? (
+        <div>Nenhuma ficha encontrada.</div>
       ) : (
         <div className="treinos-grid">
-          {treinos.map((t) => {
+          {treinosFiltrados.map((t) => {
             const alunoObj = buscarAlunoPorTreino(t);
             const listaEx = normalizarListaExerciciosTreino(t.exercicios);
 
             return (
               <div key={t.id} className="form-card treino-card">
                 <div>
-                  <h4>{t.divisao}</h4>
+                  <h4 className="treino-titulo"><Dumbbell size={20} /> {t.divisao}</h4>
+                  <span className="treinamento-badge treinamento-badge--azul">{listaEx.length} exercícios</span>
                   <p>
                     <strong>Aluno:</strong> {alunoObj ? alunoObj.nome || alunoObj.name : 'Desconhecido'}
                   </p>
@@ -540,7 +578,7 @@ export default function Treinos() {
                       style={{ textDecoration: 'none', textAlign: 'center' }}
                       title="Ver ficha completa, modelos e histórico do aluno"
                     >
-                      📋 Ver Ficha & Modelos
+                      <ClipboardList size={15} /> Ver Ficha
                     </Link>
                   )}
                   <a
@@ -549,11 +587,11 @@ export default function Treinos() {
                     rel="noopener noreferrer"
                     className="btn-whatsapp"
                   >
-                    💬 Enviar WhatsApp
+                    <MessageCircle size={15} /> WhatsApp
                   </a>
                   <button
                     type="button"
-                    onClick={() => excluirTreino(t.id)}
+                    disabled={!podeAcessar(usuarioAtual,'treinos','excluir')} onClick={() => excluirTreino(t.id)}
                     className="btn-excluir-treino"
                   >
                     Excluir

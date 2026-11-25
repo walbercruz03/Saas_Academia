@@ -396,3 +396,139 @@
     right: 12px !important;
   }
 }
+
+
+/* =========================================
+   WC FIT - ÍCONES VETORIAIS LUCIDE
+   ========================================= */
+
+/* Padronização dos menus principais */
+.sidebar-nav > ul > li > a,
+.sidebar-nav > ul > li > .nav-group-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 24px;
+  gap: 16px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* Alinhamento dos ícones */
+.sidebar-nav .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.sidebar-nav .nav-icon svg {
+  display: block;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+/* Treinamento e Financeiro */
+.sidebar-nav .nav-group-toggle {
+  justify-content: space-between;
+}
+
+.sidebar-nav .nav-group-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-nav .nav-label {
+  text-align: left;
+}
+
+/* Setas de expansão */
+.sidebar-nav .nav-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Submenus */
+.sidebar-nav .nav-submenu .nav-icon {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+}
+
+/* Encerrar sessão */
+.btn-sair-sidebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-sair-sidebar svg {
+  flex-shrink: 0;
+}
+
+/* Alternância de tema */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle svg {
+  flex-shrink: 0;
+}
+
+/* Alinhamento definitivo do menu lateral */
+.sidebar-nav > ul > li > a,
+.sidebar-nav > ul > li > button.nav-group-toggle {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 12px 28px !important;
+  gap: 16px !important;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.sidebar-nav .nav-group-left {
+  display: flex;
+  align-items: center;
+  gap: 16px !important;
+  flex: 1;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.sidebar-nav .nav-icon {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px;
+  margin: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-nav .nav-label {
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left;
+}
+
+.sidebar-nav .nav-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+}

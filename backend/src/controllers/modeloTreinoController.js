@@ -87,7 +87,7 @@ const modeloTreinoController = {
       return res.status(400).json({ erro: 'ID inválido.' });
     }
 
-    ModeloTreino.buscarPorId(req.params.id, (err, modelo) => {
+    ModeloTreino.buscarPorId(req.params.id, escopo.academiaId ?? 0, (err, modelo) => {
       if (err) {
         return responderErro(
           res, err, 'Erro ao buscar modelo.'
@@ -177,7 +177,7 @@ const modeloTreinoController = {
       });
     }
 
-    ModeloTreino.buscarPorId(req.params.id, (err, modelo) => {
+    ModeloTreino.buscarPorId(req.params.id, escopo.academiaId ?? 0, (err, modelo) => {
       if (err) {
         return responderErro(
           res, err, 'Erro ao verificar modelo.'
@@ -238,7 +238,7 @@ const modeloTreinoController = {
       return res.status(400).json({ erro: 'ID inválido.' });
     }
 
-    ModeloTreino.buscarPorId(req.params.id, (err, original) => {
+    ModeloTreino.buscarPorId(req.params.id, escopo.academiaId ?? 0, (err, original) => {
       if (err) {
         return responderErro(
           res, err, 'Erro ao buscar modelo.'
@@ -287,7 +287,7 @@ const modeloTreinoController = {
       return res.status(400).json({ erro: 'ID inválido.' });
     }
 
-    ModeloTreino.buscarPorId(req.params.id, (err, modelo) => {
+    ModeloTreino.buscarPorId(req.params.id, escopo.academiaId ?? 0, (err, modelo) => {
       if (err) {
         return responderErro(
           res, err, 'Erro ao verificar modelo.'

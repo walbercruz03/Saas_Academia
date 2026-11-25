@@ -698,3 +698,9 @@
     font-size: 0.62rem;
   }
 }
+.login-footer .login-cadastro-cta {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: .5rem;
+  text-decoration: none;
+}

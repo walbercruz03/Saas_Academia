@@ -1,3 +1,5 @@
+import { podeAcessar } from '../permissoesProfessor';
+import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -18,6 +20,7 @@ const estadoInicialNivel = {
 };
 
 export default function ConfiguracoesTreino() {
+  const { usuario: usuarioAtual } = useAuth();
   const [abaAtiva, setAbaAtiva] = useState('modalidades'); // 'modalidades' | 'niveis'
 
   // Dados
@@ -297,7 +300,7 @@ export default function ConfiguracoesTreino() {
           {abaAtiva === 'modalidades' ? (
             <button
               type="button"
-              onClick={abrirNovaModalidade}
+              disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovaModalidade}
               className="treinamento-btn treinamento-btn--primario"
             >
               + Nova Modalidade
@@ -305,7 +308,7 @@ export default function ConfiguracoesTreino() {
           ) : (
             <button
               type="button"
-              onClick={abrirNovoNivel}
+              disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovoNivel}
               className="treinamento-btn treinamento-btn--primario"
             >
               + Novo Nível
@@ -440,7 +443,7 @@ export default function ConfiguracoesTreino() {
                           <div className="treinamento-acoes-linha">
                             <button
                               type="button"
-                              onClick={() => abrirEditarModalidade(mod)}
+                              disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarModalidade(mod)}
                               className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                             >
                               Editar
@@ -458,7 +461,7 @@ export default function ConfiguracoesTreino() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleExcluirModalidade(mod)}
+                              disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluirModalidade(mod)}
                               className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                             >
                               Excluir
@@ -552,7 +555,7 @@ export default function ConfiguracoesTreino() {
                           <div className="treinamento-acoes-linha">
                             <button
                               type="button"
-                              onClick={() => abrirEditarNivel(niv)}
+                              disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarNivel(niv)}
                               className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                             >
                               Editar
@@ -570,7 +573,7 @@ export default function ConfiguracoesTreino() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleExcluirNivel(niv)}
+                              disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluirNivel(niv)}
                               className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                             >
                               Excluir

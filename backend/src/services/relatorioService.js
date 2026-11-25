@@ -1,6 +1,7 @@
 const db = require('../config/database');
 
-const TIMEZONE = 'America/Fortaleza';
+const { TIMEZONE, formatarYMD, getDataHojeFortaleza, validarDataYMD } = require('../utils/datasFortaleza');
+const { dataContratual, situacaoEfetiva } = require('./vigenciaMatricula');
 
 const TIPOS_RELATORIO = [
   'geral',
@@ -22,16 +23,6 @@ const PERIODOS_SUPORTADOS = [
   'personalizado',
 ];
 
-const formatarYMD = (ano, mes, dia) => {
-  const dt = new Date(Date.UTC(ano, mes - 1, dia));
-
-  return [
-    dt.getUTCFullYear(),
-    String(dt.getUTCMonth() + 1).padStart(2, '0'),
-    String(dt.getUTCDate()).padStart(2, '0'),
-  ].join('-');
-};
-
 const adicionarDiasYMD = (ymd, dias) => {
   const [ano, mes, dia] = ymd.split('-').map(Number);
   return formatarYMD(ano, mes, dia + dias);
@@ -50,20 +41,6 @@ const adicionarMesesYMD = (ymd, meses) => {
   );
 };
 
-const getDataHojeFortaleza = () => {
-  const partes = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-
-  const obter = (tipo) =>
-    partes.find((p) => p.type === tipo)?.value;
-
-  return `${obter('year')}-${obter('month')}-${obter('day')}`;
-};
-
 const fortalezaLocalParaUTC = (
   dataStr,
   horaStr = '00:00:00'
@@ -80,19 +57,6 @@ const fortalezaLocalParaUTC = (
     .replace('T', ' ');
 };
 
-const validarDataYMD = (valor) => {
-  if (
-    typeof valor !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(valor)
-  ) {
-    return false;
-  }
-
-  const [ano, mes, dia] = valor.split('-').map(Number);
-
-  return formatarYMD(ano, mes, dia) === valor;
-};
-
 const erroValidacao = (mensagem, statusCode = 400) => {
   const erro = new Error(mensagem);
   erro.statusCode = statusCode;
@@ -102,9 +66,9 @@ const erroValidacao = (mensagem, statusCode = 400) => {
 const resolverIntervaloPeriodo = (
   periodo = 'hoje',
   dataInicioCustom,
-  dataFimCustom
+  dataFimCustom,
+  hoje
 ) => {
-  const hoje = getDataHojeFortaleza();
   const [ano, mes, dia] = hoje.split('-').map(Number);
 
   let inicio = hoje;
@@ -197,7 +161,7 @@ const resolverIntervaloPeriodo = (
 
 const runGet = (sql, params = []) =>
   new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
+    db.leitor().get(sql, params, (err, row) => {
       if (err) return reject(err);
       resolve(row || null);
     });
@@ -205,7 +169,7 @@ const runGet = (sql, params = []) =>
 
 const runAll = (sql, params = []) =>
   new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    db.leitor().all(sql, params, (err, rows) => {
       if (err) return reject(err);
       resolve(rows || []);
     });
@@ -243,10 +207,12 @@ const obterDadosRelatorio = async ({
     throw erroValidacao('Período inválido.');
   }
 
+  const hojeFortaleza = getDataHojeFortaleza();
   const intervalo = resolverIntervaloPeriodo(
     periodoNormalizado,
     dataInicio,
-    dataFim
+    dataFim,
+    hojeFortaleza
   );
 
   const {
@@ -258,13 +224,24 @@ const obterDadosRelatorio = async ({
     fimUTCExclusivo,
   } = intervalo;
 
+  // SQLite grava os horários padrão em UTC e aceita datas de pagamento ISO.
+  // No PostgreSQL, CURRENT_TIMESTAMP é gravado no fuso da sessão em colunas sem fuso.
+  const timestampComparavel = (coluna) => db.isSqlite ? `julianday(${coluna})` : coluna;
+  const limiteUTC = db.isSqlite ? 'julianday(?)' : '(?)::timestamp';
+  const limiteLocal = db.isSqlite
+    ? limiteUTC
+    : `((?)::timestamp AT TIME ZONE 'UTC' AT TIME ZONE current_setting('TimeZone'))`;
+  const exibirTimestamp = (coluna) => db.isSqlite
+    ? coluna
+    : `(${coluna} AT TIME ZONE current_setting('TimeZone'))`;
+
   // ==========================================
   // 1. ALUNOS
   // ==========================================
 
   const resumoAlunosRow = await runGet(`
     SELECT
-      COUNT(*) AS totalBase,
+      COUNT(*) AS "totalBase",
 
       COALESCE(SUM(
         CASE WHEN status = 'ativo'
@@ -274,23 +251,11 @@ const obterDadosRelatorio = async ({
       COALESCE(SUM(
         CASE WHEN status <> 'ativo'
         THEN 1 ELSE 0 END
-      ), 0) AS inativos,
-
-      COALESCE(SUM(
-        CASE
-          WHEN criado_em >= (?)::timestamp
-           AND criado_em < (?)::timestamp
-          THEN 1 ELSE 0
-        END
-      ), 0) AS novosNoPeriodo
+      ), 0) AS inativos
 
     FROM alunos
     WHERE academia_id = ?
-  `, [
-    inicioUTC,
-    fimUTCExclusivo,
-    academia,
-  ]);
+  `, [academia]);
 
   const alunosPeriodoLista = await runAll(`
     SELECT
@@ -300,13 +265,13 @@ const obterDadosRelatorio = async ({
       telefone,
       email,
       status,
-      criado_em
+      ${exibirTimestamp('criado_em')} AS criado_em
 
     FROM alunos
 
     WHERE academia_id = ?
-      AND criado_em >= (?)::timestamp
-      AND criado_em < (?)::timestamp
+      AND ${timestampComparavel('criado_em')} >= ${limiteLocal}
+      AND ${timestampComparavel('criado_em')} < ${limiteLocal}
 
     ORDER BY criado_em DESC
   `, [
@@ -323,24 +288,11 @@ const obterDadosRelatorio = async ({
     SELECT
       COALESCE(SUM(
         CASE
-          WHEN substr(data_inicio, 1, 10) >= ?
-           AND substr(data_inicio, 1, 10) < ?
-          THEN 1 ELSE 0
-        END
-      ), 0) AS totalNoPeriodo,
-
-      COALESCE(SUM(
-        CASE
           WHEN substr(data_vencimento, 1, 10) >= ?
            AND substr(data_vencimento, 1, 10) < ?
           THEN 1 ELSE 0
         END
-      ), 0) AS vencidasNoPeriodo,
-
-      COALESCE(SUM(
-        CASE WHEN status = 'ativo'
-        THEN 1 ELSE 0 END
-      ), 0) AS ativas,
+      ), 0) AS "vencidasNoPeriodo",
 
       COALESCE(SUM(
         CASE
@@ -349,7 +301,7 @@ const obterDadosRelatorio = async ({
           THEN COALESCE(valor_pago, 0)
           ELSE 0
         END
-      ), 0) AS valorContratadoPeriodo
+      ), 0) AS "valorContratadoPeriodo"
 
     FROM matriculas
     WHERE academia_id = ?
@@ -358,10 +310,19 @@ const obterDadosRelatorio = async ({
     fimExclusivoYMD,
     dtIni,
     fimExclusivoYMD,
-    dtIni,
-    fimExclusivoYMD,
     academia,
   ]);
+
+  const candidatas = await runAll(`
+    SELECT m.status, m.data_inicio, m.data_vencimento, a.status AS aluno_status, p.id AS plano_valido
+    FROM matriculas m
+    JOIN alunos a ON a.id = m.aluno_id AND a.academia_id = m.academia_id
+    JOIN planos p ON p.id = m.plano_id AND p.academia_id = m.academia_id
+    WHERE m.academia_id = ? AND m.status = 'ativo'
+      AND substr(m.data_inicio, 1, 10) <= ?
+      AND substr(m.data_vencimento, 1, 10) >= ?
+  `, [academia, hojeFortaleza, hojeFortaleza]);
+  const ativas = candidatas.filter((matricula) => situacaoEfetiva(matricula, hojeFortaleza) === 'vigente').length;
 
   const matriculasPeriodoLista = await runAll(`
     SELECT
@@ -374,16 +335,18 @@ const obterDadosRelatorio = async ({
       m.valor_pago,
       m.criado_em,
       a.nome AS aluno_nome,
+      a.status AS aluno_status,
+      p.id AS plano_valido,
       p.nome AS plano_nome,
       p.preco AS plano_preco
 
     FROM matriculas m
 
-    JOIN alunos a
+    LEFT JOIN alunos a
       ON a.id = m.aluno_id
      AND a.academia_id = m.academia_id
 
-    JOIN planos p
+    LEFT JOIN planos p
       ON p.id = m.plano_id
      AND p.academia_id = m.academia_id
 
@@ -402,55 +365,29 @@ const obterDadosRelatorio = async ({
   // 3. CHECK-INS
   // ==========================================
 
-  const resumoFrequenciaRow = await runGet(`
-    SELECT
-      COUNT(*) AS totalCheckins,
-      COUNT(DISTINCT aluno_id) AS alunosDistinct
-
-    FROM checkins
-
-    WHERE academia_id = ?
-      AND data_checkin >= (?)::timestamp
-      AND data_checkin < (?)::timestamp
-  `, [
-    academia,
-    inicioUTC,
-    fimUTCExclusivo,
-  ]);
-
   const checkinsPeriodoLista = await runAll(`
     SELECT
       c.id,
       c.aluno_id,
-      c.data_checkin,
+      ${exibirTimestamp('c.data_checkin')} AS data_checkin,
       c.status,
       c.observacoes,
       a.nome AS aluno_nome,
 
-      (
-        SELECT COUNT(*)
-        FROM checkins c2
-
-        WHERE c2.academia_id = c.academia_id
-          AND c2.aluno_id = c.aluno_id
-          AND c2.data_checkin >= (?)::timestamp
-          AND c2.data_checkin < (?)::timestamp
-      ) AS total_checkins_periodo
+      COUNT(*) OVER (PARTITION BY c.aluno_id) AS total_checkins_periodo
 
     FROM checkins c
 
-    JOIN alunos a
+    LEFT JOIN alunos a
       ON a.id = c.aluno_id
      AND a.academia_id = c.academia_id
 
     WHERE c.academia_id = ?
-      AND c.data_checkin >= (?)::timestamp
-      AND c.data_checkin < (?)::timestamp
+      AND ${timestampComparavel('c.data_checkin')} >= ${limiteLocal}
+      AND ${timestampComparavel('c.data_checkin')} < ${limiteLocal}
 
-    ORDER BY c.data_checkin DESC
+    ORDER BY ${timestampComparavel('c.data_checkin')} DESC
   `, [
-    inicioUTC,
-    fimUTCExclusivo,
     academia,
     inicioUTC,
     fimUTCExclusivo,
@@ -459,19 +396,6 @@ const obterDadosRelatorio = async ({
   // ==========================================
   // 4. PLANOS
   // ==========================================
-
-  const resumoPlanosRow = await runGet(`
-    SELECT
-      COUNT(*) AS totalCadastrados,
-
-      COALESCE(SUM(
-        CASE WHEN status = 'ativo'
-        THEN 1 ELSE 0 END
-      ), 0) AS ativos
-
-    FROM planos
-    WHERE academia_id = ?
-  `, [academia]);
 
   const planosPorContratacao = await runAll(`
     SELECT
@@ -487,7 +411,7 @@ const obterDadosRelatorio = async ({
            AND substr(m.data_inicio, 1, 10) < ?
           THEN 1 ELSE 0
         END
-      ), 0) AS contratadosNoPeriodo,
+      ), 0) AS "contratadosNoPeriodo",
 
       COALESCE(SUM(
         CASE
@@ -496,9 +420,9 @@ const obterDadosRelatorio = async ({
           THEN COALESCE(m.valor_pago, 0)
           ELSE 0
         END
-      ), 0) AS valorContratadoPlano,
+      ), 0) AS "valorContratadoPlano",
 
-      COUNT(m.id) AS totalMatriculas
+      COUNT(m.id) AS "totalMatriculas"
 
     FROM planos p
 
@@ -516,8 +440,8 @@ const obterDadosRelatorio = async ({
       p.status
 
     ORDER BY
-      contratadosNoPeriodo DESC,
-      totalMatriculas DESC,
+      "contratadosNoPeriodo" DESC,
+      "totalMatriculas" DESC,
       p.nome ASC
   `, [
     dtIni,
@@ -546,95 +470,39 @@ const obterDadosRelatorio = async ({
   // O filtro academia_id é obrigatório.
   // ==========================================
 
-  const finRow = await runGet(`
-    SELECT
+  const financeiro = await runAll(`
+    WITH vendas AS (
+      SELECT forma_pagamento, valor,
+        CASE WHEN status = 'pago'
+          AND ${timestampComparavel('data_pagamento')} >= ${limiteUTC}
+          AND ${timestampComparavel('data_pagamento')} < ${limiteUTC} THEN 1 ELSE 0 END AS recebida,
+        CASE WHEN status = 'pendente'
+          AND ${timestampComparavel('criado_em')} >= ${limiteLocal}
+          AND ${timestampComparavel('criado_em')} < ${limiteLocal} THEN 1 ELSE 0 END AS pendente,
+        CASE WHEN status IN ('pendente', 'vencido') AND substr(data_vencimento, 1, 10) < ?
+          THEN 1 ELSE 0 END AS vencida
+      FROM movimentacoes_financeiras WHERE academia_id = ? AND tipo = 'venda'
+    )
+    SELECT 'resumo' AS grupo, NULL AS forma_pagamento,
+      COALESCE(SUM(CASE WHEN recebida = 1 THEN valor ELSE 0 END), 0) AS "totalRecebido",
+      COALESCE(SUM(recebida), 0) AS confirmados,
+      COALESCE(SUM(pendente), 0) AS pendentes,
+      COALESCE(SUM(CASE WHEN pendente = 1 THEN valor ELSE 0 END), 0) AS "valorPendente",
+      COALESCE(SUM(CASE WHEN vencida = 1 THEN valor ELSE 0 END), 0) AS "valorVencido"
+    FROM vendas
+    UNION ALL
+    SELECT 'forma', forma_pagamento, COALESCE(SUM(valor), 0), NULL, NULL, NULL, NULL
+    FROM vendas WHERE recebida = 1 GROUP BY forma_pagamento
+  `, [inicioUTC, fimUTCExclusivo, inicioUTC, fimUTCExclusivo, fimExclusivoYMD, academia])
+    .catch((erro) => {
+      const schemaFinanceiroAusente = /(?:column|coluna).*academia_id|(?:table|relation|relação).*movimentacoes_financeiras/i;
+      if (['42703', '42P01', 'SQLITE_ERROR'].includes(erro.code) && schemaFinanceiroAusente.test(erro.message)) return [];
+      throw erro;
+    });
+  const finRow = financeiro.find((item) => item.grupo === 'resumo');
+  const formasRows = financeiro.filter((item) => item.grupo === 'forma');
 
-      COALESCE(SUM(
-        CASE
-          WHEN status = 'pago'
-           AND data_pagamento >= (?)::timestamp
-           AND data_pagamento < (?)::timestamp
-          THEN COALESCE(valor, 0)
-          ELSE 0
-        END
-      ), 0) AS totalRecebido,
-
-      COALESCE(SUM(
-        CASE
-          WHEN status = 'pago'
-           AND data_pagamento >= (?)::timestamp
-           AND data_pagamento < (?)::timestamp
-          THEN 1 ELSE 0
-        END
-      ), 0) AS confirmados,
-
-      COALESCE(SUM(
-        CASE
-          WHEN status = 'pendente'
-           AND criado_em >= (?)::timestamp
-           AND criado_em < (?)::timestamp
-          THEN 1 ELSE 0
-        END
-      ), 0) AS pendentes,
-
-      COALESCE(SUM(
-        CASE
-          WHEN status = 'pendente'
-           AND criado_em >= (?)::timestamp
-           AND criado_em < (?)::timestamp
-          THEN COALESCE(valor, 0)
-          ELSE 0
-        END
-      ), 0) AS valorPendente,
-
-      COALESCE(SUM(
-        CASE
-          WHEN status IN ('pendente', 'vencido')
-           AND data_vencimento IS NOT NULL
-           AND substr(data_vencimento, 1, 10) < ?
-          THEN COALESCE(valor, 0)
-          ELSE 0
-        END
-      ), 0) AS valorVencido
-
-    FROM movimentacoes_financeiras
-
-    WHERE academia_id = ?
-      AND tipo = 'venda'
-  `, [
-    inicioUTC,
-    fimUTCExclusivo,
-    inicioUTC,
-    fimUTCExclusivo,
-    inicioUTC,
-    fimUTCExclusivo,
-    inicioUTC,
-    fimUTCExclusivo,
-    fimExclusivoYMD,
-    academia,
-  ]);
-
-  const formasRows = await runAll(`
-    SELECT
-      forma_pagamento,
-      COALESCE(SUM(valor), 0) AS total
-
-    FROM movimentacoes_financeiras
-
-    WHERE academia_id = ?
-      AND tipo = 'venda'
-      AND status = 'pago'
-      AND data_pagamento >= (?)::timestamp
-      AND data_pagamento < (?)::timestamp
-
-    GROUP BY forma_pagamento
-  `, [
-    academia,
-    inicioUTC,
-    fimUTCExclusivo,
-  ]);
-
-  const historicoRows = await runAll(`
+  const historicoRows = finRow ? await runAll(`
     SELECT
       id,
       descricao,
@@ -652,14 +520,14 @@ const obterDadosRelatorio = async ({
       AND (
         (
           status = 'pago'
-          AND data_pagamento >= (?)::timestamp
-          AND data_pagamento < (?)::timestamp
+          AND ${timestampComparavel('data_pagamento')} >= ${limiteUTC}
+          AND ${timestampComparavel('data_pagamento')} < ${limiteUTC}
         )
         OR
         (
           status <> 'pago'
-          AND criado_em >= (?)::timestamp
-          AND criado_em < (?)::timestamp
+          AND ${timestampComparavel('criado_em')} >= ${limiteLocal}
+          AND ${timestampComparavel('criado_em')} < ${limiteLocal}
         )
       )
 
@@ -673,36 +541,37 @@ const obterDadosRelatorio = async ({
     fimUTCExclusivo,
     inicioUTC,
     fimUTCExclusivo,
-  ]);
+  ]) : [];
 
   const formasPagamento = {};
 
   formasRows.forEach((item) => {
     const forma = item.forma_pagamento || 'Não informado';
 
-    formasPagamento[forma] = numero(item.total);
+    formasPagamento[forma] = numero(item.totalRecebido);
   });
 
   const resumoFinanceiro = {
-    disponivel: true,
+    disponivel: Boolean(finRow),
 
     valorContratadoPeriodo: numero(
       resumoMatriculasRow?.valorContratadoPeriodo
     ),
 
-    totalRecebido: numero(finRow?.totalRecebido),
-    confirmados: numero(finRow?.confirmados),
-    pendentes: numero(finRow?.pendentes),
-    valorPendente: numero(finRow?.valorPendente),
-    valorVencido: numero(finRow?.valorVencido),
+    totalRecebido: finRow ? numero(finRow.totalRecebido) : null,
+    confirmados: finRow ? numero(finRow.confirmados) : null,
+    pendentes: finRow ? numero(finRow.pendentes) : null,
+    valorPendente: finRow ? numero(finRow.valorPendente) : null,
+    valorVencido: finRow ? numero(finRow.valorVencido) : null,
 
     formas_pagamento: formasPagamento,
     historico: historicoRows,
 
-    observacao:
-      'Recebidos pela data de pagamento; ' +
-      'pendentes pela data do lançamento; ' +
-      'vencidos em aberto até o fim do período.',
+    observacao: !finRow
+      ? 'Recebimentos indisponíveis: o banco não permite identificar a academia dos lançamentos financeiros.'
+      : 'Recebidos pela data de pagamento; ' +
+        'pendentes pela data do lançamento; ' +
+        'vencidos em aberto até o fim do período.',
   };
 
   // ==========================================
@@ -725,18 +594,16 @@ const obterDadosRelatorio = async ({
 
     resumoAlunos: {
       totalPeriodo: numero(resumoAlunosRow?.totalBase),
-      novosHoje: numero(resumoAlunosRow?.novosNoPeriodo),
-      novosNoPeriodo: numero(resumoAlunosRow?.novosNoPeriodo),
+      novosHoje: alunosPeriodoLista.length,
+      novosNoPeriodo: alunosPeriodoLista.length,
       ativos: numero(resumoAlunosRow?.ativos),
       inativos: numero(resumoAlunosRow?.inativos),
       lista: alunosPeriodoLista,
     },
 
     resumoMatriculas: {
-      totalHoje: numero(resumoMatriculasRow?.totalNoPeriodo),
-      totalNoPeriodo: numero(
-        resumoMatriculasRow?.totalNoPeriodo
-      ),
+      totalHoje: matriculasPeriodoLista.length,
+      totalNoPeriodo: matriculasPeriodoLista.length,
       vencidasHoje: numero(
         resumoMatriculasRow?.vencidasNoPeriodo
       ),
@@ -744,28 +611,28 @@ const obterDadosRelatorio = async ({
         resumoMatriculasRow?.vencidasNoPeriodo
       ),
       canceladasHoje: null,
-      ativas: numero(resumoMatriculasRow?.ativas),
+      ativas,
       valorContratadoPeriodo: numero(
         resumoMatriculasRow?.valorContratadoPeriodo
       ),
-      lista: matriculasPeriodoLista,
+      lista: matriculasPeriodoLista.map(({ aluno_status, plano_valido, ...matricula }) => ({
+        ...matricula,
+        situacao_efetiva: situacaoEfetiva({ ...matricula, aluno_status, plano_valido }, hojeFortaleza),
+      })),
     },
 
     resumoFrequencia: {
-      totalCheckins: numero(
-        resumoFrequenciaRow?.totalCheckins
-      ),
-      alunosDistinct: numero(
-        resumoFrequenciaRow?.alunosDistinct
-      ),
+      totalCheckins: checkinsPeriodoLista.length,
+      alunosDistinct: new Set(
+        checkinsPeriodoLista.filter((checkin) => checkin.status === 'presente')
+          .map((checkin) => checkin.aluno_id)
+      ).size,
       lista: checkinsPeriodoLista,
     },
 
     resumoPlanos: {
-      totalCadastrados: numero(
-        resumoPlanosRow?.totalCadastrados
-      ),
-      ativos: numero(resumoPlanosRow?.ativos),
+      totalCadastrados: planosPorContratacao.length,
+      ativos: planosPorContratacao.filter((plano) => plano.status === 'ativo').length,
       totalContratados: totalContratadosPeriodo,
       porPlano: planosPorContratacao,
     },
@@ -773,6 +640,36 @@ const obterDadosRelatorio = async ({
     resumoFinanceiro,
   };
 };
+
+async function obterResumoDashboard(academiaId) {
+  const [contagens, matriculas] = await Promise.all([
+    runGet(`
+      SELECT (SELECT COUNT(*) FROM alunos WHERE academia_id = ?) AS alunos,
+             (SELECT COUNT(*) FROM planos WHERE academia_id = ?) AS planos
+    `, [academiaId, academiaId]),
+    runAll(`
+      SELECT m.status, m.data_inicio, m.data_vencimento, m.valor_pago,
+        a.status AS aluno_status, p.id AS plano_valido
+      FROM matriculas m
+      JOIN alunos a ON a.id = m.aluno_id AND a.academia_id = m.academia_id
+      JOIN planos p ON p.id = m.plano_id AND p.academia_id = m.academia_id
+      WHERE m.academia_id = ?
+    `, [academiaId]),
+  ]);
+  const situacoes = { vigente: 0, vencida: 0, futura: 0, cancelada: 0 };
+  const porMes = new Map();
+  const hoje = getDataHojeFortaleza();
+  for (const item of matriculas) {
+    const situacao = situacaoEfetiva(item, hoje);
+    if (Object.hasOwn(situacoes, situacao)) situacoes[situacao] += 1;
+    const inicio = dataContratual(item.data_inicio);
+    if (!inicio) continue;
+    const mes = inicio.slice(0, 7);
+    porMes.set(mes, (porMes.get(mes) || 0) + numero(item.valor_pago));
+  }
+  return { total_alunos: numero(contagens?.alunos), total_planos: numero(contagens?.planos),
+    situacoes, valor_contratado: [...porMes].sort(([a], [b]) => a.localeCompare(b)) };
+}
 
 const obterDadosRelatorioHoje = (
   academiaId,
@@ -790,7 +687,9 @@ const obterDadosRelatorioHoje = (
 module.exports = {
   obterDadosRelatorio,
   obterDadosRelatorioHoje,
+  obterResumoDashboard,
   getDataHojeFortaleza,
+  validarDataYMD,
   TIPOS_RELATORIO,
   PERIODOS_SUPORTADOS,
 };

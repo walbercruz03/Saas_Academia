@@ -1,16 +1,16 @@
 const db = require('../config/database');
 
 const NivelDificuldade = {
-  listar: ({ apenasAtivos = false } = {}, callback) => {
+  listar: ({ apenasAtivos = false, academia_id } = {}, callback) => {
     let sql = `
       SELECT
         n.*,
         COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
       FROM niveis_dificuldade n
-      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id
+      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id AND mt.academia_id = ?
     `;
 
-    const conditions = [];
+    const conditions = ["(n.academia_id IN (0, ?) OR n.academia_id IS NULL)"];
     if (apenasAtivos) {
       conditions.push(`n.ativo = 1`);
     }
@@ -21,20 +21,20 @@ const NivelDificuldade = {
 
     sql += ` GROUP BY n.id ORDER BY n.ordem ASC, n.id ASC`;
 
-    db.all(sql, [], callback);
+    db.all(sql, [academia_id, academia_id], callback);
   },
 
-  buscarPorId: (id, callback) => {
+  buscarPorId: (id, academiaId, callback) => {
     const sql = `
       SELECT
         n.*,
         COALESCE(COUNT(DISTINCT mt.id), 0) AS total_modelos
       FROM niveis_dificuldade n
-      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id
-      WHERE n.id = ?
+      LEFT JOIN modelos_treino mt ON mt.nivel_id = n.id AND mt.academia_id = ?
+      WHERE n.id = ? AND (n.academia_id IN (0, ?) OR n.academia_id IS NULL)
       GROUP BY n.id
     `;
-    db.get(sql, [id], callback);
+    db.get(sql, [academiaId, id, academiaId], callback);
   },
 
   gerarSlug: (texto) => {
@@ -46,28 +46,29 @@ const NivelDificuldade = {
       .replace(/^-+|-+$/g, '');
   },
 
-  criar: ({ nome, slug = null, ordem = 1, ativo = 1 }, callback) => {
+  criar: ({ nome, slug = null, ordem = 1, ativo = 1, academia_id }, callback) => {
     const slugFinal = slug && slug.trim() ? NivelDificuldade.gerarSlug(slug) : NivelDificuldade.gerarSlug(nome);
-    const sql = `INSERT INTO niveis_dificuldade (nome, slug, ordem, ativo) VALUES (?, ?, ?, ?)`;
-    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0], function (err) {
+    const sql = `INSERT INTO niveis_dificuldade (nome, slug, ordem, ativo, academia_id) VALUES (?, ?, ?, ?, ?)`;
+    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0, academia_id], function (err) {
       if (err) return callback(err);
-      NivelDificuldade.buscarPorId(this && this.lastID ? this.lastID : null, callback);
+      NivelDificuldade.buscarPorId(this && this.lastID ? this.lastID : null, academia_id, callback);
     });
   },
 
-  atualizar: (id, { nome, slug = null, ordem = 1, ativo = 1 }, callback) => {
+  atualizar: (id, { nome, slug = null, ordem = 1, ativo = 1, academia_id }, callback) => {
     const slugFinal = slug && slug.trim() ? NivelDificuldade.gerarSlug(slug) : NivelDificuldade.gerarSlug(nome);
-    const sql = `UPDATE niveis_dificuldade SET nome = ?, slug = ?, ordem = ?, ativo = ? WHERE id = ?`;
-    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0, id], function (err) {
+    const sql = `UPDATE niveis_dificuldade SET nome = ?, slug = ?, ordem = ?, ativo = ? WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [nome.trim(), slugFinal, Number(ordem || 1), ativo ? 1 : 0, id, academia_id], function (err) {
       if (err) return callback(err);
-      NivelDificuldade.buscarPorId(id, callback);
+      if (!this.changes) return callback(null, null);
+      NivelDificuldade.buscarPorId(id, academia_id, callback);
     });
   },
 
-  deletar: (id, callback) => {
+  deletar: (id, academiaId, callback) => {
     db.get(
-      `SELECT COUNT(*) as total FROM modelos_treino WHERE nivel_id = ?`,
-      [id],
+      `SELECT COUNT(*) as total FROM modelos_treino WHERE nivel_id = ? AND academia_id = ?`,
+      [id, academiaId],
       (err, row) => {
         if (err) return callback(err);
         const total = Number(row?.total || 0);
@@ -79,7 +80,7 @@ const NivelDificuldade = {
           return callback(erroVinculo);
         }
 
-        db.run(`DELETE FROM niveis_dificuldade WHERE id = ?`, [id], function (delErr) {
+        db.run(`DELETE FROM niveis_dificuldade WHERE id = ? AND academia_id = ?`, [id, academiaId], function (delErr) {
           if (delErr) return callback(delErr);
           callback(null, { deleted: true, changes: this?.changes || 0 });
         });

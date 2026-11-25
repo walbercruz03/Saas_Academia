@@ -16,7 +16,7 @@ const GrupoMuscular = {
   },
 
   listar: ({ busca = '', academia_id = '' } = {}, callback) => {
-    const params = [];
+    const params = [academia_id];
     let sql = `
       SELECT
         gm.*,
@@ -25,16 +25,13 @@ const GrupoMuscular = {
         COALESCE(COUNT(DISTINCT egm.exercicio_id), 0) AS total_exercicios
       FROM grupos_musculares gm
       LEFT JOIN exercicio_grupos_musculares egm ON egm.grupo_muscular_id = gm.id
+        AND egm.exercicio_id IN (SELECT id FROM exercicios WHERE academia_id IN (0, gm.academia_id))
+      WHERE gm.academia_id = ?
     `;
-
-    if (academia_id && String(academia_id).trim() !== '') {
-      sql += ` WHERE gm.academia_id = ?`;
-      params.push(Number(academia_id));
-    }
 
     if (busca && busca.trim() !== '') {
       const termo = `%${busca.trim()}%`;
-      sql += ` OR LOWER(gm.nome) LIKE LOWER(?) OR LOWER(COALESCE(gm.descricao, '')) LIKE LOWER(?)`;
+      sql += ` AND (LOWER(gm.nome) LIKE LOWER(?) OR LOWER(COALESCE(gm.descricao, '')) LIKE LOWER(?))`;
       params.push(termo, termo);
     }
 
@@ -43,9 +40,9 @@ const GrupoMuscular = {
     db.all(sql, params, callback);
   },
 
-  buscarPorId: (id, callback) => {
-    const sql = `SELECT * FROM grupos_musculares WHERE id = ?`;
-    db.get(sql, [id], callback);
+  buscarPorId: (id, academiaId, callback) => {
+    const sql = `SELECT * FROM grupos_musculares WHERE id = ? AND academia_id = ?`;
+    db.get(sql, [id, academiaId], callback);
   },
 
   criar: ({ nome, descricao = null, academia_id }, callback) => {
@@ -61,8 +58,8 @@ const GrupoMuscular = {
   },
 
   atualizar: (id, { nome, descricao = null, academia_id }, callback) => {
-    const sql = `UPDATE grupos_musculares SET nome = ?, descricao = ?, academia_id = ? WHERE id = ?`;
-    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, academia_id, id], function (err) {
+    const sql = `UPDATE grupos_musculares SET nome = ?, descricao = ? WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [nome.trim(), descricao ? descricao.trim() : null, id, academia_id], function (err) {
       if (err) return callback(err);
       callback(null, {
         id: Number(id),
@@ -73,9 +70,9 @@ const GrupoMuscular = {
     });
   },
 
-  deletar: (id, callback) => {
-    const sql = `DELETE FROM grupos_musculares WHERE id = ?`;
-    db.run(sql, [id], function (err) {
+  deletar: (id, academiaId, callback) => {
+    const sql = `DELETE FROM grupos_musculares WHERE id = ? AND academia_id = ?`;
+    db.run(sql, [id, academiaId], function (err) {
       if (err) return callback(err);
       callback(null, {
         deleted: true,
