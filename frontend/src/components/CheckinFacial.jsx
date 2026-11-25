@@ -28,6 +28,7 @@ function CameraFacial({ aluno, aviso, fechar, aoConcluir }) {
   const video = useRef(null);
   const pedido = useRef(null);
   const [camera, setCamera] = useState(false);
+  const [telaCheia, setTelaCheia] = useState(false);
   const [acordo, setAcordo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [mensagem, setMensagem] = useState('');
@@ -117,14 +118,14 @@ function CameraFacial({ aluno, aviso, fechar, aoConcluir }) {
     });
   }
 
-  return <dialog ref={dialogo} className="facial-dialogo" onCancel={(evento) => { evento.preventDefault(); fechar(); }}
+  return <dialog ref={dialogo} className={telaCheia ? 'facial-dialogo facial-tela-cheia' : 'facial-dialogo'} onCancel={(evento) => { evento.preventDefault(); fechar(); }}
     aria-labelledby="facial-titulo">
     <header className="facial-acoes">
       <h2 id="facial-titulo"><ScanFace size={24} aria-hidden="true" /> {aluno ? 'Cadastro biométrico' : 'Check-in facial assistido'}</h2>
-      <button type="button" className="btn-outline" onClick={() => {
-        if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-        else dialogo.current?.requestFullscreen?.().catch(() => setMensagem('Tela cheia indisponível neste navegador.'));
-      }}><Expand size={18} aria-hidden="true" /> Tela cheia</button>
+      {aluno == null && <button type="button" className="btn-outline" aria-pressed={telaCheia}
+        onClick={() => setTelaCheia((valor) => !valor)}>
+        <Expand size={18} aria-hidden="true" /> {telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}
+      </button>}
       <button type="button" className="btn-outline" onClick={fechar}><X size={18} aria-hidden="true" /> Fechar</button>
     </header>
     <p>Centralize o rosto no guia e siga o movimento solicitado. Se a verificação falhar, use o check-in manual.</p>

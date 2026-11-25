@@ -32,6 +32,12 @@ function ciclar(mapa) {
   }
 }
 
+const limpeza = setInterval(() => {
+  ciclar(desafios);
+  ciclar(capturas);
+}, 5_000);
+limpeza.unref();
+
 function limparDesafios(academia,aluno) {
   for (const [id,item] of desafios) {
     if (item.academia === academia && (aluno == null || item.aluno === aluno)) desafios.delete(id);

@@ -209,3 +209,11 @@ uso único, válidos por 30 minutos. Configure `GESTAO_EMAIL_API_KEY`,
 credenciais do Resend desses fluxos são independentes do cadastro público.
 A reversão automática da 014 foi bloqueada para preservar a exclusão lógica
 e evitar que sessões antigas voltem a ser aceitas.
+
+### Check-in facial assistido
+
+A migration 021 mantém o recurso desligado por academia. Em um ambiente autorizado, configure no backend `CHECKIN_FACIAL_CHAVE` com uma chave independente de 32 bytes aleatórios em hexadecimal, mantida fora do repositório e do banco. A câmera exige HTTPS ou localhost. Após a aprovação da política de privacidade, o administrador habilita o recurso no Check-in e pode cadastrar, atualizar ou excluir a biometria nos detalhes do aluno. O modo quiosque requer uma sessão de recepção autorizada e confirmação do CPF pelo atendente. O check-in manual permanece disponível.
+
+Os quadros em escala de cinza transitam em requisições de curta duração e são processados em memória. Mantenha o registro de corpos de requisição desativado também no proxy e em ferramentas de monitoramento. O armazenamento persistente contém somente o descritor criptografado e metadados necessários. O cadastro expira em 90 dias e deixa de ser aceito imediatamente. A remoção ocorre no próximo acesso ao módulo pela academia, na exclusão individual ou na desativação do recurso. Os desafios duram 20 segundos e vinculam a tentativa à academia e à sessão autenticada. A implantação assistida requer um processo compartilhado de API ou afinidade de sessão durante o desafio.
+
+Antes de habilitar, valide com o responsável pelo tratamento o aviso, a base legal, a coleta do consentimento específico quando aplicável, o processo de revogação, a retenção de backups e a rotina de descarte. A heurística de movimento serve para triagem e não certifica prova de vida. A liberação automática depende de avaliação de precisão e de ataques de apresentação com pessoas e dispositivos representativos, além da verificação da licença e da procedência de eventuais pesos de um modelo futuro.
