@@ -6,6 +6,9 @@ const comercial = require('../models/ComercialWcFit');
 const autogestao = require('../services/autogestaoComercial');
 const permissoes = require('../services/permissoesProfessor');
 const { transacao } = require('../models/SuperAdmin');
+const logotipo = require('../models/LogotipoAcademia');
+const onboarding = require('../models/OnboardingAcademia');
+const { validarPerfilAcademia } = require('../services/cadastroPublico');
 const logFalha = require('../utils/logFalha');
 
 const router = express.Router();
@@ -27,6 +30,59 @@ function consultar(handler) {
   };
 }
 
+router.get('/onboarding', consultar(async (_req, res, academiaId) => {
+  const dados = await onboarding.consultar(academiaId);
+  return dados ? res.json(dados) : res.status(404).json({ mensagem: 'Academia não encontrada.' });
+}));
+
+router.put('/dados', consultar(async (req, res, academiaId) => {
+  const dados = validarPerfilAcademia(req.body || {});
+  const endereco = `${dados.logradouro}, ${dados.numero} - ${dados.bairro}, ${dados.cidade}/${dados.uf}`;
+  try {
+    const { rowCount } = await consulta(`
+      UPDATE academias SET nome=$1, nome_fantasia=$1, telefone=$2, endereco=$3, cep=$4, logradouro=$5,
+        numero_endereco=$6, complemento=$7, bairro=$8, cidade=$9, uf=$10,
+        unidade_cadastro=CASE WHEN documento_cadastro IS NOT NULL THEN $11 ELSE unidade_cadastro END
+      WHERE id=$12 AND excluida_em IS NULL
+    `, [dados.fantasia, dados.comercial, endereco, dados.cep, dados.logradouro, dados.numero,
+      dados.complemento || null, dados.bairro, dados.cidade, dados.uf, dados.unidade, academiaId]);
+    return rowCount ? res.status(204).end() : res.status(404).json({ mensagem: 'Academia não encontrada.' });
+  } catch (erro) {
+    if (erro.code === '23505' && erro.constraint === 'academias_documento_unidade_cadastro_key') {
+      return res.status(409).json({ mensagem: 'Já existe uma unidade deste documento com o endereço informado.' });
+    }
+    throw erro;
+  }
+}));
+
+router.get('/dados/logotipo', consultar(async (_req, res, academiaId) => {
+  if (!await logotipo.disponivel()) return res.status(503).end();
+  const imagem = await logotipo.buscar(academiaId);
+  if (!imagem) return res.status(404).end();
+  return res.set('X-Content-Type-Options', 'nosniff').type(imagem.mime).send(Buffer.from(imagem.conteudo));
+}));
+
+router.put('/dados/logotipo',
+  express.raw({ type: ['image/png', 'image/jpeg', 'image/webp'], limit: logotipo.limite, inflate: false }),
+  consultar(async (req, res, academiaId) => {
+    const mime = req.is(['image/png', 'image/jpeg', 'image/webp']);
+    if (!logotipo.formatoValido(mime, req.body)) {
+      return res.status(400).json({ mensagem: 'Envie um logotipo PNG, JPEG ou WebP de até 128 KiB.' });
+    }
+    if (!await logotipo.disponivel()) {
+      return res.status(503).json({ mensagem: 'O envio de logotipo ainda está indisponível.' });
+    }
+    return await logotipo.salvar(academiaId, mime, req.body)
+      ? res.status(204).end()
+      : res.status(404).json({ mensagem: 'Academia não encontrada.' });
+  }),
+  (erro, _req, res, next) => {
+    if (erro.type === 'entity.too.large') return res.status(413).json({ mensagem: 'O logotipo deve ter até 128 KiB.' });
+    if (erro.type === 'encoding.unsupported') return res.status(415).json({ mensagem: 'Envie o arquivo sem compactação HTTP.' });
+    return next(erro);
+  }
+);
+
 router.get('/dados', consultar(async (_req, res, academiaId) => {
   const { rows: [dados] } = await consulta(`
     SELECT a.nome, a.nome_fantasia, a.razao_social, a.tipo_cadastro, a.telefone, a.email, a.endereco,
@@ -36,7 +92,9 @@ router.get('/dados', consultar(async (_req, res, academiaId) => {
       END AS documento_mascarado
     FROM academias a WHERE a.id = $1
   `, [academiaId]);
-  return dados ? res.json(dados) : res.status(404).json({ mensagem: 'Academia não encontrada.' });
+  if (!dados) return res.status(404).json({ mensagem: 'Academia não encontrada.' });
+  const logotipoDisponivel = await logotipo.disponivel();
+  return res.json({ ...dados, logotipo_disponivel: logotipoDisponivel });
 }));
 
 router.get('/assinatura', consultar(async (req, res, academiaId) => {

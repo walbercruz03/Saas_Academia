@@ -40,7 +40,6 @@
       rgba(2, 25, 65, 0.88) 48%,
       rgba(2, 37, 91, 0.45) 100%
     ),
-    url('/assets/gym-background.jpg') center / cover no-repeat,
     linear-gradient(135deg, #061a3e, #0753a8);
 
   overflow: hidden;
@@ -325,20 +324,20 @@
   gap: 20px;
 }
 
-.campo {
+.login-page .campo {
   display: flex;
   flex-direction: column;
   gap: 9px;
 }
 
-.campo label {
+.login-page .campo label {
   color: #152c50;
   font-size: 0.9rem;
   font-weight: 650;
 }
 
 /* Campos de entrada */
-.campo input {
+.login-page .campo input {
   width: 100%;
   height: 54px;
   padding: 0 18px;
@@ -357,11 +356,11 @@
     box-shadow 0.2s ease;
 }
 
-.campo input::placeholder {
+.login-page .campo input::placeholder {
   color: #94a3b8;
 }
 
-.campo input:focus {
+.login-page .campo input:focus {
   border-color: #0877e8;
   box-shadow: 0 0 0 4px rgba(8, 119, 232, 0.10);
 }
@@ -432,7 +431,7 @@
    BOTÃO PRINCIPAL
    ========================================================== */
 
-.btn-entrar {
+.login-page .btn-entrar {
   width: 100%;
   height: 56px;
   margin-top: 2px;
@@ -460,12 +459,12 @@
     background 0.2s ease;
 }
 
-.btn-entrar:hover:not(:disabled) {
+.login-page .btn-entrar:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 9px 20px rgba(18, 190, 100, 0.25);
 }
 
-.btn-entrar:disabled {
+.login-page .btn-entrar:disabled {
   background: #94a3b8;
   cursor: not-allowed;
 }

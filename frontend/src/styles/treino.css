@@ -1,5 +1,4 @@
 /* WC Fit — Treinos dos Alunos. Estilos exclusivos desta página. */
-.treinamento-page.treinos-modernos {container-type:inline-size;}
 .treinos-modernos .form-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;width:100%;}
 .treinos-modernos .form-grid > .campo {display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:none;min-width:0;}
 .treinos-modernos .form-grid > .campo-full,.treinos-modernos .form-grid > .exercicios-container {grid-column:1/-1;width:100%;max-width:none;min-width:0;}
@@ -8,14 +7,14 @@
 .treinos-modernos .form-grid input,.treinos-modernos .form-grid select {width:100%;max-width:none;min-width:0;}
 .treinos-modernos .treinamento-resumo-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;}
 .treinamento-page.treinos-modernos .treinamento-stat-card {gap:.55rem;border-top:3px solid #2563eb;margin:0;}
-.treinos-modernos .treinamento-stat-card svg,.treinos-modernos .treino-titulo svg {color:#2563eb;flex-shrink:0;}
+.treinos-modernos .treinamento-stat-card svg,.treinos-modernos .treino-titulo svg {color:var(--accent-text);flex-shrink:0;}
 .treinos-modernos .treino-titulo,.treinos-modernos .btn-voltar {display:flex;align-items:center;gap:.65rem;}
-.treinos-modernos .form-card > h3 {margin:0 0 1.4rem;}
+.treinos-modernos .form-card > h3 {margin:0 0 1rem;}
 .treinamento-page.treinos-modernos .treinamento-biblioteca-box,.treinos-modernos .exercicios-container {background:var(--bg-subtle,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:1.15rem;}
-.treinos-modernos .exercicios-container h4 {margin:0 0 1rem;}
+.treinos-modernos .exercicios-container h4 {margin:0 0 0.75rem;}
 .treinamento-page.treinos-modernos .treinamento-biblioteca-busca {flex:1 1 240px;max-width:none;}
-.treinos-modernos .treinamento-chip {background:var(--bg-card,#fff);color:var(--text-body,#334155);border:1px solid var(--border,#cbd5e1);padding:.5rem .8rem;}
-.treinos-modernos .treinamento-chip:hover {background:#2563eb;color:white;}
+.treinos-modernos .treinamento-chip {padding:.5rem .8rem;}
+.treinos-modernos .treinamento-chip:hover {background:var(--accent);color:#fff;}
 .treinos-modernos .treinamento-item-box {display:block;width:100%;max-width:none;background:var(--bg-card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:1rem;margin-bottom:1rem;}
 .treinamento-page.treinos-modernos .exercicio-row {display:grid;grid-template-columns:repeat(2,minmax(0,2fr)) repeat(3,minmax(0,1fr));gap:.75rem;width:100%;}
 .treinos-modernos .treinamento-item-campos {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:.75rem;width:100%;}
@@ -30,15 +29,8 @@
 .treinos-modernos .treino-card p {margin:0 0 .75rem;}
 .treinos-modernos .treino-exercicios-lista {background:var(--bg-subtle,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:.75rem;max-height:200px;overflow-y:auto;}
 .treinos-modernos .treino-acoes {display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:.5rem;margin-top:auto;padding-top:1rem;border-top:1px solid var(--border,#e2e8f0);}
-.treinos-modernos .treino-acoes a,.treinos-modernos .treino-acoes button {display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:36px;width:auto;padding:.5rem .75rem;border:0;border-radius:8px;font-size:.8rem;font-weight:600;text-decoration:none;cursor:pointer;}
-.treinos-modernos .treino-acoes .btn-whatsapp {background:#15803d;color:#fff;}
-.treinos-modernos .treino-acoes .btn-excluir-treino {background:#fee2e2;color:#991b1b;}
-.treinos-modernos .treino-acoes button:disabled {opacity:.5;cursor:not-allowed;}
-.treinos-modernos input:focus,.treinos-modernos select:focus {outline:2px solid #60a5fa;outline-offset:1px;}
-[data-theme="dark"] .treinamento-page.treinos-modernos .treinamento-item-box {background:#1c2028;border-color:#334155;}
-[data-theme="dark"] .treinos-modernos .treinamento-chip {background:#1e293b;color:#e2e8f0;border-color:#475569;}
-[data-theme="dark"] .treinos-modernos .treinamento-chip:hover {background:#2563eb;color:white;}
-[data-theme="dark"] .treinos-modernos .treinamento-preview-item {border-color:#334155;}
+
+
 @container (max-width:900px) {
  .treinamento-page.treinos-modernos .exercicio-row {grid-template-columns:repeat(2,minmax(0,1fr));}
  .treinos-modernos .treinamento-resumo-grid {grid-template-columns:repeat(2,minmax(0,1fr));}

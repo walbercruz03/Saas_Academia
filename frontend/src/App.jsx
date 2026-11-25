@@ -15,6 +15,8 @@ function carregarPagina(importar) {
   };
 }
 
+const PortalAluno = carregarPagina(() => import('./pages/PortalAluno'));
+const Comercial = carregarPagina(() => import('./pages/Comercial'));
 const SuperAdmin = carregarPagina(() => import('./pages/SuperAdmin'));
 const Planos = carregarPagina(() => import('./pages/Planos'));
 const Alunos = carregarPagina(() => import('./pages/Alunos'));
@@ -58,6 +60,16 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<Comercial />} />
+      <Route path="/aluno/login" element={<PortalAluno tela="login" />} />
+      <Route path="/aluno" element={<PortalAluno tela="inicio" />} />
+      <Route path="/aluno/treinos" element={<PortalAluno tela="treinos" />} />
+      <Route path="/aluno/treino/:fichaId" element={<PortalAluno tela="ficha" />} />
+      <Route path="/aluno/execucao/:fichaId" element={<PortalAluno tela="execucao" />} />
+      <Route path="/aluno/evolucao" element={<PortalAluno tela="evolucao" />} />
+      <Route path="/aluno/historico" element={<PortalAluno tela="historico" />} />
+      <Route path="/aluno/matricula" element={<PortalAluno tela="matricula" />} />
+      <Route path="/aluno/perfil" element={<PortalAluno tela="perfil" />} />
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
       <Route path="/cadastro" element={<CadastroAdmin />} />
       <Route path="/confirmar-conta" element={<ConfirmarConta />} />
@@ -66,13 +78,11 @@ function App() {
       {!usuario ? (
         <>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </>
       ) : (
         <Route element={<Layout />}>
           <Route element={<VerificarModulo />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/planos" element={<Planos />} />
           <Route path="/alunos" element={<Alunos />} />

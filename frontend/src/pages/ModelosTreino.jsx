@@ -1,6 +1,7 @@
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { podeAcessar } from '../permissoesProfessor';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
@@ -75,9 +76,6 @@ export default function ModelosTreino() {
   const academiaId = usuario.academia_id == null ? null : Number(usuario.academia_id);
   const ehAdminGlobal = usuario.cargo === 'admin' && (academiaId === null || academiaId === 0);
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -88,12 +86,12 @@ export default function ModelosTreino() {
     setSucesso(msg);
   };
 
-  const notificarErro = (msg) => {
+  const notificarErro = useCallback((msg) => {
     setSucesso('');
     setErro(msg);
-  };
+  }, []);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     setCarregando(true);
     setErro('');
     try {
@@ -119,7 +117,11 @@ export default function ModelosTreino() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [notificarErro]);
+
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   // Verificar se modelo é da biblioteca global (academia_id = 0)
   const ehModeloGlobal = (modelo) => {
@@ -486,9 +488,9 @@ export default function ModelosTreino() {
             disabled={!podeAcessar(usuarioAtual,'modelos','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
-            + Novo Modelo
+            <Plus size={16} aria-hidden="true" /> Novo Modelo
           </button>
-          <Link to="/dashboard">← Voltar</Link>
+          <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} aria-hidden="true" /> Voltar</Link>
         </div>
       </div>
 
@@ -652,7 +654,7 @@ export default function ModelosTreino() {
                     disabled={!podeAcessar(usuarioAtual,'modelos','criar')} onClick={() => handleDuplicarModelo(modelo)}
                     className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
-                    Duplicar
+                    <Copy size={16} aria-hidden="true" /> Duplicar
                   </button>
 
                   {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
@@ -660,7 +662,7 @@ export default function ModelosTreino() {
                     disabled={!podeAcessar(usuarioAtual,'modelos','editar')} onClick={() => abrirEditarModal(modelo)}
                     className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                   >
-                    Editar
+                    <Pencil size={16} aria-hidden="true" /> Editar
                   </button>}
 
                   {(!ehModeloGlobal(modelo) || ehAdminGlobal) && <button
@@ -668,7 +670,7 @@ export default function ModelosTreino() {
                     disabled={!podeAcessar(usuarioAtual,'modelos','excluir')} onClick={() => handleExcluirModelo(modelo)}
                     className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                   >
-                    Excluir
+                    <Trash2 size={16} aria-hidden="true" /> Excluir
                   </button>}
                 </div>
               </div>
@@ -712,9 +714,8 @@ export default function ModelosTreino() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-              >
-                ✕
+                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -896,12 +897,12 @@ export default function ModelosTreino() {
                       onClick={adicionarDivisao}
                       className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
                     >
-                      + Nova Divisão
+                      <Plus size={16} aria-hidden="true" /> Nova Divisão
                     </button>
                   </div>
 
                   {divisaoAtual && (
-                    <div className="form-card" style={{ background: '#f9fafb', marginBottom: '1.25rem' }}>
+                    <div className="form-card" style={{ background: 'var(--bg-subtle)', marginBottom: '1.25rem' }}>
                       <div className="treinamento-grid-auto" style={{ marginBottom: '1rem' }}>
                         <div className="treinamento-campo">
                           <label>Nome da Divisão *</label>
@@ -939,7 +940,7 @@ export default function ModelosTreino() {
                             onClick={removerDivisaoAtual}
                             className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                           >
-                            🗑️ Excluir esta Divisão
+                            <Trash2 size={16} aria-hidden="true" /> Excluir esta Divisão
                           </button>
                         )}
                       </div>
@@ -986,7 +987,7 @@ export default function ModelosTreino() {
 
                         {(!divisaoAtual.exercicios || divisaoAtual.exercicios.length === 0) ? (
                           <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-                            Nenhum exercício adicionado a esta divisão ainda. Clique em um dos exercícios acima ou em "+ Exercício Manual".
+                            Nenhum exercício adicionado a esta divisão ainda. Clique em um dos exercícios acima ou em &quot;+ Exercício Manual&quot;.
                           </p>
                         ) : (
                           divisaoAtual.exercicios.map((ex, exIdx) => (
@@ -999,25 +1000,22 @@ export default function ModelosTreino() {
                                     disabled={exIdx === 0}
                                     onClick={() => moverExercicioNaDivisao(exIdx, -1)}
                                     title="Mover para cima"
-                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-                                  >
-                                    ↑
+                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Mover para cima">
+                                    <ArrowUp size={16} aria-hidden="true" />
                                   </button>
                                   <button
                                     type="button"
                                     disabled={exIdx === divisaoAtual.exercicios.length - 1}
                                     onClick={() => moverExercicioNaDivisao(exIdx, 1)}
                                     title="Mover para baixo"
-                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-                                  >
-                                    ↓
+                                    className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Mover para baixo">
+                                    <ArrowDown size={16} aria-hidden="true" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => removerExercicioNaDivisao(exIdx)}
-                                    className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
-                                  >
-                                    ✕
+                                    className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm" aria-label="Remover">
+                                    <Trash2 size={16} aria-hidden="true" />
                                   </button>
                                 </div>
                               </div>
@@ -1084,7 +1082,7 @@ export default function ModelosTreino() {
                       onClick={() => setEtapaForm(1)}
                       className="treinamento-btn treinamento-btn--neutro"
                     >
-                      ← Voltar para Informações Gerais
+                      <ArrowLeft size={16} aria-hidden="true" /> Voltar para Informações Gerais
                     </button>
                     <button
                       type="submit"
@@ -1116,9 +1114,8 @@ export default function ModelosTreino() {
               <button
                 type="button"
                 onClick={() => setModeloDetalhe(null)}
-                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-              >
-                ✕
+                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 

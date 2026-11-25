@@ -4,6 +4,7 @@ const Checkin = require('../models/Checkin');
 const Aluno = require('../models/Aluno');
 const Financeiro = require('../models/Financeiro');
 const { matriculasImpedidas } = require('../services/inadimplenciaCheckin');
+const { confirmacaoFacial } = require('../services/checkinFacial');
 const db = require('../config/database');
 const idempotencia = require('../services/operacaoIdempotente');
 
@@ -95,6 +96,23 @@ const checkinController = {
         if (!matricula) {
           throw idempotencia.erroOperacao(409, 'Check-in indisponível. Consulte a recepção.', 'CHECKIN_PENDENCIA_FINANCEIRA');
         }
+      }
+
+      if (req[confirmacaoFacial]) {
+        // Essas verificações são exclusivas do quiosque e usam a transação idempotente já aberta.
+        await consultar(executor.get.bind(executor),
+          ['SELECT pg_advisory_xact_lock(hashtextextended(?,0))', [`facial:${academia_id}:${aluno_id}`]]);
+        const habilitado = await consultar(executor.get.bind(executor),
+          ['SELECT checkin_facial_ativo FROM academias WHERE id = ? FOR SHARE', [academia_id]]);
+        const biometria = await consultar(executor.get.bind(executor), [`
+          SELECT 1 FROM aluno_biometrias_faciais WHERE academia_id=? AND aluno_id=? AND expira_em>now() FOR SHARE
+        `,[academia_id,aluno_id]]);
+        if (!habilitado?.checkin_facial_ativo || !biometria) throw idempotencia.erroOperacao(409,'Confirmação indisponível.');
+        const anterior = await consultar(executor.get.bind(executor), [`
+          SELECT 1 FROM checkins WHERE academia_id=? AND aluno_id=? AND status='presente'
+            AND data_checkin >= now()-interval '60 seconds' LIMIT 1
+        `,[academia_id,aluno_id]]);
+        if (anterior) throw idempotencia.erroOperacao(409,'Já existe um check-in recente.');
       }
 
       const registro = await consultar(Checkin.create, [{ aluno_id, status, observacoes, academia_id, matricula }], executor);

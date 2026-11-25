@@ -1,3 +1,4 @@
+import { ArrowLeft, Pencil, Plus, Trash2, X, UserRound, Search, Smartphone, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { podeAcessar } from '../permissoesProfessor';
 
@@ -420,7 +421,7 @@ export default function Alunos() {
         </div>
 
         <Link to="/dashboard" className="btn-voltar">
-          ← Voltar
+          <ArrowLeft size={16} aria-hidden="true" /> Voltar
         </Link>
       </div>
 
@@ -452,7 +453,7 @@ export default function Alunos() {
             className="btn-salvar alunos-btn-novo"
             onClick={abrirNovoAluno} disabled={!podeAcessar(usuario,'alunos','criar')}
           >
-            + Novo Aluno
+            <Plus size={16} aria-hidden="true" /> Novo Aluno
           </button>
         </div>
 
@@ -573,7 +574,7 @@ export default function Alunos() {
           </div>
         ) : alunosFiltrados.length === 0 ? (
           <div className="alunos-estado-vazio">
-            <div className="alunos-vazio-icone">⌕</div>
+            <div className="alunos-vazio-icone"><Search size={32} aria-hidden="true" /></div>
             <strong>Nenhum aluno encontrado</strong>
             <p>
               Tente outro nome, CPF ou altere os filtros.
@@ -601,9 +602,10 @@ export default function Alunos() {
                         onClick={() =>
                           navigate(`/alunos/${a.id}`)
                         }
-                        title="Abrir ficha do aluno"
+                        title="Gerenciar aluno"
                       >
-                        {a.nome}
+                        <span className="aluno-avatar-mini"><UserRound size={18} aria-hidden="true" /></span>
+                        <span>{a.nome}</span>
                       </button>
                     </td>
 
@@ -626,14 +628,19 @@ export default function Alunos() {
                             navigate(`/alunos/${a.id}`)
                           }
                         >
-                          Ficha & Treinos
+                          <ChevronRight size={16} aria-hidden="true" /> Gerenciar aluno
                         </button>
+                        {(usuario?.cargo === 'admin' || (usuario?.cargo === 'professor' && podeAcessar(usuario,'alunos','editar'))) && (
+                          <button type="button" className="alunos-acao-portal" onClick={() => navigate(`/alunos/${a.id}?aba=portal`)}>
+                            <Smartphone size={16} aria-hidden="true" /> Portal
+                          </button>
+                        )}
 
                         <button
                           type="button"
                           onClick={() => editar(a)} disabled={!podeAcessar(usuario,'alunos','editar')}
                         >
-                          Editar
+                          <Pencil size={16} aria-hidden="true" /> Editar
                         </button>
 
                         <button
@@ -641,7 +648,7 @@ export default function Alunos() {
                           className="alunos-acao-excluir"
                           onClick={() => excluir(a.id)} disabled={usuario?.cargo !== 'admin'}
                         >
-                          Excluir
+                          <Trash2 size={16} aria-hidden="true" /> Excluir
                         </button>
                       </div>
                     </td>
@@ -716,7 +723,7 @@ export default function Alunos() {
               onClick={fecharFormulario}
               disabled={carregando}
             >
-              ✕ Fechar
+              <X size={16} aria-hidden="true" /> Fechar
             </button>
           </div>
 
@@ -884,9 +891,8 @@ export default function Alunos() {
                           onClick={() =>
                             removerModeloSelecionado(m.id)
                           }
-                          title="Remover modelo"
-                        >
-                          ✕
+                          title="Remover modelo" aria-label="Remover">
+                          <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
                     ))}

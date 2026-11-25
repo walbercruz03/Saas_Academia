@@ -1,4 +1,3 @@
-
 /* ==========================================================
    WC FIT - GESTÃO DE ALUNOS
    Layout profissional, responsivo e com suporte a tema escuro
@@ -6,7 +5,7 @@
 
 .alunos-page {
   width: 100%;
-  max-width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0;
   box-sizing: border-box;
@@ -276,7 +275,7 @@
   background: var(--bg-subtle, #f8fafc);
 }
 
-.alunos-link-nome {
+.alunos-page .alunos-link-nome {
   border: none;
   background: transparent;
   padding: 0;
@@ -285,6 +284,9 @@
   font-weight: 750;
   text-align: left;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .alunos-link-nome:hover {
@@ -300,7 +302,7 @@
   gap: 8px;
 }
 
-.alunos-acoes button {
+.alunos-page .alunos-acoes button {
   padding: 8px 11px;
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border, #cbd5e1);
@@ -312,6 +314,11 @@
   cursor: pointer;
   white-space: nowrap;
   transition: border-color 0.2s, background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
 }
 
 .alunos-acoes button:hover {
@@ -319,9 +326,10 @@
   color: #2563eb;
 }
 
-.alunos-acoes .alunos-acao-ficha {
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.05);
+.alunos-page .alunos-acoes .alunos-acao-ficha {
+  color: #fff;
+  background: #123b70;
+  border-color: #123b70;
 }
 
 .alunos-acoes .alunos-acao-excluir {
@@ -684,6 +692,116 @@
   cursor: not-allowed;
 }
 
+/* Perfil e navegação do aluno — estilos exclusivos */
+
+.page-container.treinamento-page.aluno-detalhes-page {
+  width: 100%;
+  max-width: 1200px;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.aluno-detalhes-page .aluno-perfil-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.aluno-perfil-identidade {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.aluno-perfil-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.aluno-perfil-texto > div {
+  flex-wrap: wrap;
+}
+
+.aluno-perfil-avatar, .aluno-avatar-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(37,99,235,.12);
+  color: var(--text-heading,#164b94);
+  border-radius: 50%;
+}
+
+.aluno-perfil-avatar {
+  width: 64px;
+  height: 64px;
+}
+
+.aluno-avatar-mini {
+  width: 36px;
+  height: 36px;
+}
+
+.alunos-page .alunos-acoes .alunos-acao-portal {
+  color: var(--text-body,#334155);
+}
+
+.aluno-detalhes-page .aluno-abas-card {
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.aluno-detalhes-page .aluno-abas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,180px),1fr));
+  gap: 8px;
+}
+
+.aluno-detalhes-page .aluno-abas .treinamento-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.aluno-detalhes-page .aluno-abas .treinamento-btn svg {
+  flex-shrink: 0;
+}
+
+.aluno-detalhes-page .aluno-abas .treinamento-btn[aria-pressed="true"] {
+  background: #123b70;
+  color: #fff;
+  border-color: #123b70;
+}
+
+.aluno-detalhes-page .aluno-abas .treinamento-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.aluno-detalhes-page .treinamento-tabela-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.aluno-detalhes-page .treinamento-btn {
+  gap: 6px;
+}
+
+.alunos-page .alunos-acoes .alunos-acao-ficha:hover {
+  background: #174d8a;
+  border-color: #174d8a;
+  color: #fff;
+}
+
 /* Tema escuro */
 
 [data-theme="dark"] .alunos-page .alunos-painel,
@@ -707,8 +825,7 @@
   color: #93c5fd;
 }
 
-[data-theme="dark"] .alunos-link-nome,
-[data-theme="dark"] .alunos-acao-ficha {
+[data-theme="dark"] .alunos-page .alunos-link-nome {
   color: #93c5fd;
 }
 
@@ -799,6 +916,68 @@
 
   .alunos-page .btn-grupo button {
     width: 100%;
+  }
+}
+
+@media (max-width:600px) {
+  .aluno-detalhes-page .aluno-abas {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+  .aluno-detalhes-page .aluno-abas .treinamento-btn {
+    flex-direction: column;
+    font-size: .78rem;
+    padding: 10px 5px;
+  }
+
+  .aluno-perfil-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .aluno-detalhes-page .aluno-perfil-header {
+    align-items: flex-start;
+  }
+
+  .aluno-detalhes-page .treinamento-acoes-header {
+    width: 100%;
+  }
+
+  .alunos-page .alunos-tabela {
+    min-width: 0;
+  }
+
+  .alunos-page .alunos-tabela thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .alunos-page .alunos-tabela tbody, .alunos-page .alunos-tabela tr, .alunos-page .alunos-tabela td {
+    display: block;
+    width: 100%;
+  }
+
+  .alunos-page .alunos-tabela tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--border,#e2e8f0);
+  }
+
+  .alunos-page .alunos-tabela td {
+    padding: 6px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .alunos-page .alunos-acoes {
+    gap: 6px;
+  }
+
+  .alunos-page .alunos-acoes button {
+    flex: 1 1 auto;
+    min-height: 44px;
   }
 }
 

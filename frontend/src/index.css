@@ -24,16 +24,12 @@
   font-weight: 400;
   line-height: 1.5;
 
-  color: #172b4d;
-  background: #f5f8fd;
-
   color-scheme: light;
 }
 
 /* HTML */
 html {
   width: 100%;
-  min-width: 320px;
   min-height: 100%;
   scroll-behavior: smooth;
 }
@@ -41,13 +37,11 @@ html {
 /* BODY */
 body {
   width: 100%;
-  min-width: 320px;
   min-height: 100vh;
   margin: 0;
 
   display: block;
 
-  background: #f5f8fd;
 }
 
 /* CONTAINER PRINCIPAL DO REACT */

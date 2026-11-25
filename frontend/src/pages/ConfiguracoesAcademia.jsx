@@ -1,8 +1,12 @@
+import PropTypes from 'prop-types';
+import LogotipoAcademia from '../components/LogotipoAcademia';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole } from 'lucide-react';
+import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole, ArrowRight, ChevronLeft, ChevronRight, FileText, LogOut, Save, X } from 'lucide-react';
 import '../styles/configuracoes.css';
 import api from '../api';
+import { useConsultaCep } from '../useConsultaCep';
+import CamposCadastroAcademia from '../components/CamposCadastroAcademia';
 import { useAuth } from '../contexts/AuthContext';
 
 const secoes = [
@@ -39,10 +43,10 @@ function Consulta({ secao, children, versao = 0 }) {
   return <>
     {children(resultado)}
     {(pagina > 1 || resultado.temMais) && <nav className="btn-grupo" aria-label="Páginas de pagamentos">
-      <button type="button" className="relatorios-btn" disabled={pagina === 1}
-        onClick={() => setPagina(pagina - 1)}>Anterior</button>
-      <button type="button" className="relatorios-btn" disabled={!resultado.temMais}
-        onClick={() => setPagina(pagina + 1)}>Próxima</button>
+      <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={pagina === 1}
+        onClick={() => setPagina(pagina - 1)}><ChevronLeft size={16} aria-hidden="true" /> Anterior</button>
+      <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={!resultado.temMais}
+        onClick={() => setPagina(pagina + 1)}>Próxima <ChevronRight size={16} aria-hidden="true" /></button>
     </nav>}
   </>;
 }
@@ -51,6 +55,60 @@ function Descricao({ itens }) {
   return <dl className="config-dados">{itens.map(([rotulo, valor]) => <div key={rotulo}>
     <dt>{rotulo}</dt><dd>{valor ?? '—'}</dd>
   </div>)}</dl>;
+}
+
+function camposPerfil(academia) {
+  return {
+    nome_fantasia: academia.nome_fantasia || academia.nome,
+    whatsapp_comercial: academia.telefone, numero: academia.numero_endereco,
+    cep: academia.cep, logradouro: academia.logradouro, complemento: academia.complemento,
+    bairro: academia.bairro, cidade: academia.cidade, uf: academia.uf,
+  };
+}
+
+function PerfilAcademia({ academia, atualizar }) {
+  const [editando, setEditando] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState('');
+  const [dados, setDados] = useState(() => camposPerfil(academia));
+  const avisoCep = useConsultaCep(dados, setDados, academia.cep?.replace(/\D/g, '') || '');
+  async function salvar(evento) {
+    evento.preventDefault();
+    setOcupado(true);
+    setErro('');
+    try {
+      await api.put('/configuracoes/dados', dados);
+      atualizar();
+    } catch (falha) {
+      setErro(falha.response?.data?.mensagem || 'Não foi possível salvar os dados da academia.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+  return <>
+    <Descricao itens={[
+      ['Nome fantasia', academia.nome_fantasia || academia.nome], ['Razão social', academia.razao_social],
+      ['CPF ou CNPJ', academia.documento_mascarado], ['Telefone', academia.telefone], ['E-mail de contato', academia.email],
+      ['Endereço', [academia.logradouro, academia.numero_endereco, academia.complemento, academia.bairro,
+        academia.cidade, academia.uf, academia.cep].filter(Boolean).join(', ') || academia.endereco],
+    ]} />
+    {editando ? <form onSubmit={salvar}>
+      <fieldset className="form-grid" disabled={ocupado}>
+        <legend>Editar nome, telefone e endereço comercial</legend>
+        <CamposCadastroAcademia dados={dados} setDados={setDados} avisoCep={avisoCep} somentePerfil />
+      </fieldset>
+      {erro && <p className="msg-erro" role="alert">{erro}</p>}
+      <div className="btn-grupo">
+        <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={ocupado}
+          onClick={() => { setEditando(false); setErro(''); setDados(camposPerfil(academia)); }}>Cancelar</button>
+        <button className="treinamento-btn treinamento-btn--primario" disabled={ocupado}>
+          <Save size={16} aria-hidden="true" /> {ocupado ? 'Salvando…' : 'Salvar dados'}
+        </button>
+      </div>
+    </form> : <button type="button" className="treinamento-btn treinamento-btn--neutro"
+      onClick={() => setEditando(true)}>Editar dados comerciais</button>}
+    <LogotipoAcademia disponivel={academia.logotipo_disponivel} />
+  </>;
 }
 
 function Permissoes({ professores, modulos, acoes }) {
@@ -93,7 +151,7 @@ function Permissoes({ professores, modulos, acoes }) {
               ? [...regras[modulo] || [],acao] : regras[modulo].filter((valor) => valor !== acao) })} /> {acao}{' '}
         </label>)}
       </fieldset>)}
-      <button className="relatorios-btn relatorios-btn-primario" disabled={ocupado}>Salvar permissões</button>
+      <button className="treinamento-btn treinamento-btn--primario" disabled={ocupado}><Save size={16} aria-hidden="true" /> Salvar permissões</button>
     </>}
     {mensagem && <p role="status">{mensagem}</p>}
   </form>;
@@ -155,20 +213,20 @@ function AcoesAssinatura({ dados, atualizar }) {
           <input value={documento} onChange={(e) => setDocumento(e.target.value)} maxLength={18} disabled={ocupado} />
         </label>
         <label><input type="checkbox" required /> Autorizo a contratação por {moeda(dados.mensalidade_centavos)}/mês neste ambiente de teste.</label>
-        <button type="submit" className="relatorios-btn relatorios-btn-primario" disabled={ocupado}>Confirmar forma de pagamento</button>
+        <button type="submit" className="treinamento-btn treinamento-btn--primario" disabled={ocupado}><CreditCard size={16} aria-hidden="true" /> Confirmar forma de pagamento</button>
       </form>
     )}
     {link && <p><a href={link} target="_blank" rel="noreferrer">Abrir Checkout Sandbox</a></p>}
-    {dados.sandbox && <button type="button" className="relatorios-btn" disabled={ocupado} onClick={async () => {
+    {dados.sandbox && <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={ocupado} onClick={async () => {
       try { setFaturas((await api.get('/configuracoes/assinatura/sandbox')).data.cobrancas); }
       catch (falha) { setMensagem(falha.response?.data?.mensagem || 'Não foi possível consultar o Sandbox.'); }
-    }}>Consultar pagamentos Sandbox</button>}
+    }}><FileText size={16} aria-hidden="true" /> Consultar pagamentos Sandbox</button>}
     {faturas && <ul>{faturas.map((p) => <li key={p.id}>{dataCivil(p.vencimento)} · {moeda(p.valor_centavos)} · {p.status}
       {p.fatura_url && <>{' '}<a href={p.fatura_url} target="_blank" rel="noreferrer">Abrir fatura</a></>}
     </li>)}</ul>}
-    <button type="button" className="relatorios-btn" disabled={ocupado} onClick={() => {
+    <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={ocupado} onClick={() => {
       if (window.confirm('Cancelar a renovação da assinatura? Você mantém o acesso durante o período vigente.')) executar('cancelar');
-    }}>{controle.cancelamento_solicitado_em ? 'Consultar cancelamento' : 'Cancelar assinatura'}</button>
+    }}><X size={16} aria-hidden="true" /> {controle.cancelamento_solicitado_em ? 'Consultar cancelamento' : 'Cancelar assinatura'}</button>
     {mensagem && <p role="status">{mensagem}</p>}
   </>;
 }
@@ -176,26 +234,31 @@ function AcoesAssinatura({ dados, atualizar }) {
 export default function ConfiguracoesAcademia() {
   const { usuario, logout } = useAuth();
   const { secao = 'dados' } = useParams();
+  const [versaoDados, setVersaoDados] = useState(0);
   const [versaoAssinatura, setVersaoAssinatura] = useState(0);
   if (usuario?.cargo !== 'admin') return <Navigate to="/dashboard" replace />;
   if (!secoes.some(([id]) => id === secao)) return <Navigate to="/configuracoes/dados" replace />;
 
-  return <div className="container config-academia">
-    <h1>Configurações da academia</h1>
-    <p className="config-subtitulo">Gerencie os dados, acessos e preferências da sua academia.</p>
+  return <div className="page-container config-academia">
+    <header className="page-header">
+      <div>
+        <h1>Configurações da academia</h1>
+        <p>Gerencie os dados, acessos e preferências da sua academia.</p>
+      </div>
+    </header>
     <nav className="config-abas" aria-label="Configurações da academia">
       {secoes.map(([id, rotulo, Icon]) => <NavLink key={id} to={`/configuracoes/${id}`}
-        className={({ isActive }) => `config-aba ${isActive || secao === id ? 'config-aba-ativa' : ''}`}><Icon size={19} strokeWidth={1.8} aria-hidden="true" />{rotulo}</NavLink>)}
+        className={({ isActive }) => `config-aba ${isActive || secao === id ? 'config-aba-ativa' : ''}`} aria-current={secao === id ? 'page' : undefined}><Icon size={19} strokeWidth={1.8} aria-hidden="true" />{rotulo}</NavLink>)}
     </nav>
     <section className="form-card config-painel" aria-labelledby="configuracoes-titulo">
       <h2 id="configuracoes-titulo">{secoes.find(([id]) => id === secao)[1]}</h2>
-      {secao === 'dados' && <Consulta key="dados" secao="dados">{(d) => <Descricao itens={[
-        ['Nome fantasia', d.nome_fantasia || d.nome], ['Razão social', d.razao_social],
-        ['CPF ou CNPJ', d.documento_mascarado], ['Telefone', d.telefone], ['E-mail de contato', d.email],
-        ['Endereço', [d.logradouro, d.numero_endereco, d.complemento, d.bairro, d.cidade, d.uf, d.cep]
-          .filter(Boolean).join(', ') || d.endereco],
-      ]} />}</Consulta>}
-      {secao === 'usuarios' && <Link to="/professores">Gerenciar professores</Link>}
+      {secao === 'dados' && <>
+        {versaoDados > 0 && <p className="msg-sucesso" role="status">Dados da academia atualizados.</p>}
+        <Consulta key="dados" secao="dados" versao={versaoDados}>{(dados) => (
+          <PerfilAcademia key={versaoDados} academia={dados} atualizar={() => setVersaoDados((v) => v + 1)} />
+        )}</Consulta>
+      </>}
+      {secao === 'usuarios' && <Link to="/professores" className="treinamento-btn treinamento-btn--neutro">Gerenciar professores <ArrowRight size={16} aria-hidden="true" /></Link>}
       {secao === 'permissoes' && <Consulta key="permissoes" secao="permissoes">{(dados) => <Permissoes {...dados} />}</Consulta>}
       {secao === 'assinatura' && <Consulta key="assinatura" secao="assinatura" versao={versaoAssinatura}>{(d) => <>
         <Descricao itens={[
@@ -210,8 +273,42 @@ export default function ConfiguracoesAcademia() {
           {dataCivil(p.recebido_em)} · {moeda(p.valor_centavos)} · Vencimento {dataCivil(p.competencia)}
         </li>)}</ul> : <p>Nenhum pagamento registrado nesta página.</p>}
       </>}</Consulta>}
-      {secao === 'preferencias' && <Link to="/checkin">Configurar política de inadimplência no check-in</Link>}
-      {secao === 'seguranca' && <button type="button" className="relatorios-btn" onClick={logout}>Sair desta sessão</button>}
+      {secao === 'preferencias' && <Link to="/checkin" className="treinamento-btn treinamento-btn--neutro">Configurar política de inadimplência no check-in <ArrowRight size={16} aria-hidden="true" /></Link>}
+      {secao === 'seguranca' && <button type="button" className="treinamento-btn treinamento-btn--neutro" onClick={logout}><LogOut size={16} aria-hidden="true" /> Sair desta sessão</button>}
     </section>
   </div>;
 }
+
+Consulta.propTypes = {
+  secao: PropTypes.string.isRequired, children: PropTypes.func.isRequired, versao: PropTypes.number,
+};
+Descricao.propTypes = { itens: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.node)).isRequired };
+PerfilAcademia.propTypes = {
+  academia: PropTypes.shape({
+    nome: PropTypes.string, nome_fantasia: PropTypes.string, razao_social: PropTypes.string,
+    documento_mascarado: PropTypes.string, telefone: PropTypes.string, email: PropTypes.string,
+    logradouro: PropTypes.string, numero_endereco: PropTypes.string, complemento: PropTypes.string,
+    bairro: PropTypes.string, cidade: PropTypes.string, uf: PropTypes.string, cep: PropTypes.string,
+    endereco: PropTypes.string, logotipo_disponivel: PropTypes.bool,
+  }).isRequired,
+  atualizar: PropTypes.func.isRequired,
+};
+Permissoes.propTypes = {
+  professores: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number.isRequired, nome: PropTypes.string.isRequired,
+    permissoes: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
+  })).isRequired,
+  modulos: PropTypes.objectOf(PropTypes.string).isRequired,
+  acoes: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)).isRequired,
+};
+AcoesAssinatura.propTypes = {
+  dados: PropTypes.shape({
+    autogestao: PropTypes.shape({
+      meio: PropTypes.string, cancelado_em: PropTypes.string, acesso_ate: PropTypes.string,
+      cancelamento_solicitado_em: PropTypes.string,
+    }),
+    plano: PropTypes.string, sandbox: PropTypes.bool, situacao: PropTypes.string,
+    mensalidade_centavos: PropTypes.number,
+  }).isRequired,
+  atualizar: PropTypes.func.isRequired,
+};

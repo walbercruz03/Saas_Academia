@@ -1,0 +1,17 @@
+{
+  "id": "/aluno/",
+  "name": "Wc Fit — Portal do Aluno",
+  "short_name": "Wc Fit",
+  "description": "Fichas de treino, sessões e evolução no Portal do Aluno.",
+  "lang": "pt-BR",
+  "start_url": "/aluno/",
+  "scope": "/aluno/",
+  "display": "standalone",
+  "background_color": "#091d37",
+  "theme_color": "#091d37",
+  "icons": [
+    { "src": "/aluno/pwa/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/aluno/pwa/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/aluno/pwa/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

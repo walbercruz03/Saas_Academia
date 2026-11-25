@@ -1,5 +1,6 @@
+import PropTypes from 'prop-types';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 
 import {
@@ -25,6 +26,9 @@ import {
   LogOut,
   Sun,
   Moon,
+  Menu,
+  PanelLeftClose,
+  X,
 } from 'lucide-react';
 
 import { moduloPorRota, podeAcessar } from '../permissoesProfessor';
@@ -81,6 +85,41 @@ export default function Layout({ children }) {
   const location = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarRecolhida, setSidebarRecolhida] = useState(false);
+  const [telaCompacta, setTelaCompacta] = useState(
+    () => window.matchMedia('(max-width: 960px)').matches
+  );
+  const botaoMenu = useRef(null);
+  const botaoFechar = useRef(null);
+  const menuVisivel = telaCompacta ? sidebarOpen : !sidebarRecolhida;
+  const menuSobreposto = telaCompacta && sidebarOpen;
+
+  function fecharMenu() {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => botaoMenu.current?.focus());
+  }
+
+  function navegarPeloMenu() {
+    if (menuSobreposto) fecharMenu();
+  }
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 960px)');
+    function atualizarTela(evento) {
+      setTelaCompacta(evento.matches);
+      setSidebarOpen(false);
+    }
+    media.addEventListener('change', atualizarTela);
+    return () => media.removeEventListener('change', atualizarTela);
+  }, []);
+
+  useEffect(() => {
+    if (!menuSobreposto) return;
+    botaoFechar.current?.focus();
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = overflowAnterior; };
+  }, [menuSobreposto]);
 
   const [theme, setTheme] = useState(
     () => localStorage.getItem('wcfit_theme') || 'light'
@@ -149,18 +188,48 @@ export default function Layout({ children }) {
   const isActive = (path) =>
     location.pathname === path ||
     (
-      path === '/configuracoes' &&
-      location.pathname.startsWith('/configuracoes/')
+      (path === '/configuracoes' || path === '/alunos') &&
+      location.pathname.startsWith(`${path}/`)
     );
 
   return (
-    <div className="layout-app-container">
+    <div className="layout-app-container layout-academia">
 
       {/* Barra lateral */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+      {menuSobreposto && <div className="sidebar-fundo" onClick={fecharMenu} />}
+      <aside
+        id="menu-academia"
+        className="sidebar"
+        hidden={!menuVisivel}
+        role={menuSobreposto ? 'dialog' : undefined}
+        aria-modal={menuSobreposto || undefined}
+        aria-label="Menu da academia"
+        onKeyDown={(evento) => {
+          if (!menuSobreposto) return;
+          if (evento.key === 'Escape') fecharMenu();
+          if (evento.key !== 'Tab') return;
+
+          const controles = evento.currentTarget.querySelectorAll('button:not(:disabled), a[href]');
+          const primeiro = controles[0];
+          const ultimo = controles[controles.length - 1];
+          if (evento.shiftKey && document.activeElement === primeiro) {
+            evento.preventDefault();
+            ultimo.focus();
+          } else if (!evento.shiftKey && document.activeElement === ultimo) {
+            evento.preventDefault();
+            primeiro.focus();
+          }
+        }}
+      >
 
         <div className="sidebar-header">
-          <div className="logo-badge">WF</div>
+          <div className="logo-badge" aria-hidden="true">WF</div>
+          {menuSobreposto && (
+            <button ref={botaoFechar} type="button" className="sidebar-fechar"
+              aria-label="Fechar menu" onClick={fecharMenu}>
+              <X size={20} aria-hidden="true" />
+            </button>
+          )}
 
           <div>
             <h2>Wc Fit</h2>
@@ -168,7 +237,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Navegação principal">
           <span className="nav-section-title">
             Menu Principal
           </span>
@@ -180,8 +249,9 @@ export default function Layout({ children }) {
               <li key={item.path}>
                 <Link
                   to={item.path}
+                  aria-current={isActive(item.path) ? 'page' : undefined}
                   className={isActive(item.path) ? 'active' : ''}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={navegarPeloMenu}
                 >
                   <MenuIcon icon={item.icon} />
 
@@ -226,8 +296,9 @@ export default function Layout({ children }) {
                       <li key={sub.path}>
                         <Link
                           to={sub.path}
+                          aria-current={isActive(sub.path) ? 'page' : undefined}
                           className={isActive(sub.path) ? 'active' : ''}
-                          onClick={() => setSidebarOpen(false)}
+                          onClick={navegarPeloMenu}
                         >
                           <MenuIcon icon={sub.icon} size={18} />
 
@@ -277,8 +348,9 @@ export default function Layout({ children }) {
                       <li key={sub.path}>
                         <Link
                           to={sub.path}
+                          aria-current={isActive(sub.path) ? 'page' : undefined}
                           className={isActive(sub.path) ? 'active' : ''}
-                          onClick={() => setSidebarOpen(false)}
+                          onClick={navegarPeloMenu}
                         >
                           <MenuIcon icon={sub.icon} size={18} />
 
@@ -299,8 +371,9 @@ export default function Layout({ children }) {
               <li key={CONFIGURACOES_ITEM.path}>
                 <Link
                   to={CONFIGURACOES_ITEM.path}
+                  aria-current={isActive(CONFIGURACOES_ITEM.path) ? 'page' : undefined}
                   className={isActive(CONFIGURACOES_ITEM.path) ? 'active' : ''}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={navegarPeloMenu}
                 >
                   <MenuIcon icon={CONFIGURACOES_ITEM.icon} />
 
@@ -351,12 +424,23 @@ export default function Layout({ children }) {
       </aside>
 
       {/* Conteúdo principal */}
-      <main className="main-content">
+      <main className="main-content" inert={menuSobreposto ? '' : undefined}>
 
         <div className="top-theme-bar">
           <button
+            ref={botaoMenu}
             type="button"
-            className="theme-toggle theme-toggle-cinza"
+            className="theme-toggle"
+            aria-controls="menu-academia"
+            aria-expanded={menuVisivel}
+            aria-label={menuVisivel ? 'Recolher menu' : 'Abrir menu'}
+            onClick={() => telaCompacta ? setSidebarOpen(true) : setSidebarRecolhida((valor) => !valor)}
+          >
+            {menuVisivel ? <PanelLeftClose size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
             onClick={() =>
               setTheme((prev) =>
                 prev === 'dark' ? 'light' : 'dark'
@@ -383,3 +467,10 @@ export default function Layout({ children }) {
     </div>
   );
 }
+
+MenuIcon.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  size: PropTypes.number,
+};
+
+Layout.propTypes = { children: PropTypes.node };

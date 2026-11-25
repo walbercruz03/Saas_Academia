@@ -1,11 +1,15 @@
+import PropTypes from 'prop-types';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { solicitar } from '../apiSuperAdmin';
 import NovaAcademia from '../components/NovaAcademia';
-import AcademiaOperacional, { situacoesAcademia, acoesAcademia } from '../components/AcademiaOperacional';
+import AcademiaOperacional from '../components/AcademiaOperacional';
+import { situacoesAcademia, acoesAcademia } from '../situacoesAcademia';
 import ConvitesAdministradores from '../components/ConvitesAdministradores';
-import GestaoAdministrador, { rotulosGestao } from '../components/GestaoAdministrador';
-import AssinaturasWcFit, { moedaComercial } from '../components/AssinaturasWcFit';
+import GestaoAdministrador from '../components/GestaoAdministrador';
+import { rotulosGestao } from '../rotulosGestao';
+import AssinaturasWcFit from '../components/AssinaturasWcFit';
+import { moedaComercial } from '../moedaComercial';
 import '../styles/styles.css';
 import '../styles/layout.css';
 import '../styles/dashboard.css';
@@ -550,3 +554,32 @@ export default function SuperAdminPainel() {
     </div>
   );
 }
+
+Indicadores.propTypes = {
+  dados: PropTypes.shape({
+    ...Object.fromEntries(indicadores.map(([id]) => [id, PropTypes.number.isRequired])),
+    sandbox: PropTypes.objectOf(PropTypes.number),
+    comerciais: PropTypes.objectOf(PropTypes.number),
+  }).isRequired,
+};
+
+Registros.propTypes = {
+  dados: PropTypes.shape({
+    registros: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.number.isRequired, nome: PropTypes.string, tipo_cadastro: PropTypes.string,
+      cidade: PropTypes.string, uf: PropTypes.string, documento_mascarado: PropTypes.string,
+      situacao_operacional: PropTypes.string, criado_em: PropTypes.string, administradores: PropTypes.number,
+      email_ou_matricula: PropTypes.string, excluido: PropTypes.bool, status: PropTypes.string,
+      academia_nome: PropTypes.string, academia_id: PropTypes.number, academia_ativa: PropTypes.bool,
+      evento: PropTypes.string, convite_id: PropTypes.number,
+    })).isRequired,
+    pagina: PropTypes.number.isRequired,
+    total: PropTypes.number,
+    temMais: PropTypes.bool.isRequired,
+  }).isRequired,
+  modulo: PropTypes.oneOf(Object.keys(tabelas)).isRequired,
+  mudarPagina: PropTypes.func.isRequired,
+  selecionarOperacao: PropTypes.func.isRequired,
+  selecionarAdministrador: PropTypes.func.isRequired,
+  selecionarCadastro: PropTypes.func.isRequired,
+};

@@ -1,10 +1,10 @@
+import { Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import useOperacaoPendente from '../useOperacaoPendente';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/styles.css';
-import '../styles/matricula.css';
 
 const FORM_VAZIO = {
   aluno_id: '',
@@ -320,41 +320,43 @@ export default function Matriculas() {
         </form>
       </div>
 
-      <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: '#111827' }}>Matrículas Cadastradas</h3>
+      <h3 className="titulo-listagem">Matrículas Cadastradas</h3>
       {matriculas.length === 0 ? (
         <div className="lista-vazia">Nenhuma matrícula.</div>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>Plano</th>
-              <th>Vencimento</th>
-              <th>Status</th>
-              <th className="acao-col">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {matriculas.map((m) => (
-              <tr key={m.id}>
-                <td>{alunoNome(m.aluno_id)}</td>
-                <td>{planoNome(m.plano_id)}</td>
-                <td>{normalizarDataInput(m.data_vencimento) || '-'}</td>
-                <td><span className={`badge badge-${m.situacao_efetiva === 'vigente' ? 'ativo' : 'inativo'}`}>
-                  {(m.situacao_efetiva || m.status).replaceAll('_', ' ')}
-                </span></td>
-                <td className="acao-col">
-                  {usuario?.cargo === 'admin' && ['vigente', 'vencida'].includes(m.situacao_efetiva) && (
-                    <button type="button" className="btn-icon" disabled={carregando || Boolean(renovacao.pendente)}
-                      onClick={() => abrirRenovacao(m.id)}>Renovar</button>
-                  )}
-                  <button onClick={() => editar(m)} className="btn-icon">Editar</button>
-                  <button onClick={() => excluir(m.id)} className="btn-icon" style={{ color: '#dc2626' }}>Excluir</button>
-                </td>
+        <div className="tabela-scroll" role="region" aria-label="Tabela de matrículas" tabIndex={0}>
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Plano</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th className="acao-col">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {matriculas.map((m) => (
+                <tr key={m.id}>
+                  <td>{alunoNome(m.aluno_id)}</td>
+                  <td>{planoNome(m.plano_id)}</td>
+                  <td>{normalizarDataInput(m.data_vencimento) || '-'}</td>
+                  <td><span className={`badge badge-${m.situacao_efetiva === 'vigente' ? 'ativo' : 'inativo'}`}>
+                    {(m.situacao_efetiva || m.status).replaceAll('_', ' ')}
+                  </span></td>
+                  <td className="acao-col">
+                    {usuario?.cargo === 'admin' && ['vigente', 'vencida'].includes(m.situacao_efetiva) && (
+                      <button type="button" className="btn-icon" disabled={carregando || Boolean(renovacao.pendente)}
+                        onClick={() => abrirRenovacao(m.id)}><RefreshCw size={16} aria-hidden="true" /> Renovar</button>
+                    )}
+                    <button onClick={() => editar(m)} className="btn-icon"><Pencil size={16} aria-hidden="true" /> Editar</button>
+                    <button onClick={() => excluir(m.id)} className="btn-icon btn-icon--perigo"><Trash2 size={16} aria-hidden="true" /> Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

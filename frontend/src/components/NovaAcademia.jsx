@@ -1,7 +1,9 @@
+import PropTypes from 'prop-types';
 import { useEffect, useRef, useState } from 'react';
 import { solicitar } from '../apiSuperAdmin';
-import CamposCadastroAcademia, { useConsultaCep } from './CamposCadastroAcademia';
-import { moedaComercial } from './AssinaturasWcFit';
+import { useConsultaCep } from '../useConsultaCep';
+import CamposCadastroAcademia from './CamposCadastroAcademia';
+import { moedaComercial } from '../moedaComercial';
 
 const chaveNova = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
   (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -170,3 +172,13 @@ export default function NovaAcademia({ selecao, fechar, confirmar, sessaoEncerra
     <button type="button" className="relatorios-btn relatorios-btn-secundario" disabled={ocupado} onClick={fechar}>Fechar</button>
   </dialog>;
 }
+
+NovaAcademia.propTypes = {
+  selecao: PropTypes.shape({
+    academia: PropTypes.shape({ id: PropTypes.number.isRequired }),
+    acao: PropTypes.oneOf(['criar', 'dados', 'editar']),
+  }),
+  fechar: PropTypes.func.isRequired,
+  confirmar: PropTypes.func.isRequired,
+  sessaoEncerrada: PropTypes.func.isRequired,
+};

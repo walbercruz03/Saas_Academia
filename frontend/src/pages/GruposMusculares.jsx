@@ -1,6 +1,7 @@
+import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { podeAcessar } from '../permissoesProfessor';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
@@ -28,9 +29,6 @@ export default function GruposMusculares() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  useEffect(() => {
-    carregarGrupos();
-  }, []);
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -41,12 +39,12 @@ export default function GruposMusculares() {
     setSucesso(msg);
   };
 
-  const notificarErro = (msg) => {
+  const notificarErro = useCallback((msg) => {
     setSucesso('');
     setErro(msg);
-  };
+  }, []);
 
-  const carregarGrupos = async (termoBusca = busca) => {
+  const carregarGrupos = useCallback(async (termoBusca) => {
     setCarregando(true);
     setErro('');
     try {
@@ -61,7 +59,11 @@ export default function GruposMusculares() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [notificarErro]);
+
+  useEffect(() => {
+    carregarGrupos('');
+  }, [carregarGrupos]);
 
   const gruposFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -140,7 +142,7 @@ export default function GruposMusculares() {
       setModalAberto(false);
       setEditandoGrupo(null);
       setForm(estadoInicialForm);
-      await carregarGrupos();
+      await carregarGrupos(busca);
     } catch (err) {
       console.error(err);
       setErro(err?.response?.data?.erro || 'Erro ao salvar grupo muscular.');
@@ -157,7 +159,7 @@ export default function GruposMusculares() {
     try {
       await api.delete(`/grupos-musculares/${grupo.id}`);
       notificarSucesso('Grupo muscular excluído com sucesso!');
-      await carregarGrupos();
+      await carregarGrupos(busca);
     } catch (err) {
       console.error(err);
       notificarErro(err?.response?.data?.erro || 'Erro ao excluir grupo muscular.');
@@ -177,9 +179,9 @@ export default function GruposMusculares() {
             disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
-            + Novo Grupo Muscular
+            <Plus size={16} aria-hidden="true" /> Novo Grupo Muscular
           </button>
-          <Link to="/dashboard">← Voltar</Link>
+          <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} aria-hidden="true" /> Voltar</Link>
         </div>
       </div>
 
@@ -266,7 +268,7 @@ export default function GruposMusculares() {
         ) : gruposPaginados.length === 0 ? (
           <div>Nenhum grupo muscular encontrado.</div>
         ) : (
-          <div className="treinamento-tabela-wrap">
+          <div className="treinamento-tabela-wrap" role="region" aria-label="Grupos musculares" tabIndex={0}>
             <table className="treinamento-tabela">
               <thead>
                 <tr>
@@ -301,14 +303,14 @@ export default function GruposMusculares() {
                           disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarModal(grupo)}
                           className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                         >
-                          Editar
+                          <Pencil size={16} aria-hidden="true" /> Editar
                         </button>
                         <button
                           type="button"
                           disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluir(grupo)}
                           className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                         >
-                          Excluir
+                          <Trash2 size={16} aria-hidden="true" /> Excluir
                         </button>
                       </div>
                     </td>
@@ -354,9 +356,8 @@ export default function GruposMusculares() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-              >
-                ✕
+                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 

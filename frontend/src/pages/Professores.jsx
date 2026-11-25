@@ -1,3 +1,4 @@
+import { Pencil, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -115,35 +116,37 @@ export default function Professores() {
         </form>
       </div>
 
-      <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: '#111827' }}>Professores Cadastrados</h3>
+      <h3 className="titulo-listagem">Professores Cadastrados</h3>
       {professores.length === 0 ? (
         <div className="lista-vazia">Nenhum professor cadastrado.</div>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail / Matrícula</th>
-              <th>Cargo</th>
-              <th>Status</th>
-              <th className="acao-col">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {professores.map((p) => (
-              <tr key={p.id}>
-                <td><strong>{p.nome}</strong></td>
-                <td>{p.email_ou_matricula}</td>
-                <td><span className="badge badge-ativo">{p.cargo}</span></td>
-                <td><span className="badge badge-ativo">{p.status || 'ativo'}</span></td>
-                <td className="acao-col">
-                  <button onClick={() => editar(p)} className="btn-icon">Editar</button>
-                  <button onClick={() => excluir(p.id)} className="btn-icon" style={{ color: '#dc2626' }}>Excluir</button>
-                </td>
+        <div className="tabela-scroll" role="region" aria-label="Tabela de professores" tabIndex={0}>
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail / Matrícula</th>
+                <th>Cargo</th>
+                <th>Status</th>
+                <th className="acao-col">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {professores.map((p) => (
+                <tr key={p.id}>
+                  <td><strong>{p.nome}</strong></td>
+                  <td>{p.email_ou_matricula}</td>
+                  <td><span className="badge badge-ativo">{p.cargo}</span></td>
+                  <td><span className="badge badge-ativo">{p.status || 'ativo'}</span></td>
+                  <td className="acao-col">
+                    <button onClick={() => editar(p)} className="btn-icon"><Pencil size={16} aria-hidden="true" /> Editar</button>
+                    <button onClick={() => excluir(p.id)} className="btn-icon btn-icon--perigo"><Trash2 size={16} aria-hidden="true" /> Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

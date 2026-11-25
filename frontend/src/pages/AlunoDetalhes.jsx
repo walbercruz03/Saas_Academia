@@ -1,7 +1,12 @@
+import CheckinFacial from '../components/CheckinFacial';
+import EvolucaoAluno from '../components/EvolucaoAluno';
+import HistoricoExecucoesProfessor from '../components/HistoricoExecucoesProfessor';
+import GestaoPortalAluno from '../components/GestaoPortalAluno';
+import { UserRound, Dumbbell, ClipboardList, CreditCard, ChartLine, History, Smartphone, ArrowLeft, Pencil, Plus, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { podeAcessar } from '../permissoesProfessor';
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -39,7 +44,6 @@ const formatarDataContratual = (data) => {
 export default function AlunoDetalhes() {
   const { usuario } = useAuth();
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [aluno, setAluno] = useState(null);
   const [modelosAtribuidos, setModelosAtribuidos] = useState([]);
@@ -47,8 +51,13 @@ export default function AlunoDetalhes() {
   const [matriculas, setMatriculas] = useState([]);
   const [execucoes, setExecucoes] = useState([]);
 
-  // Aba ativa: 'dados' | 'matricula' | 'treinamento' | 'acompanhamento' | 'historico'
-  const [abaAtiva, setAbaAtiva] = useState('treinamento');
+  const podeOrientarPortal = usuario?.cargo === 'admin' ||
+    (usuario?.cargo === 'professor' && podeAcessar(usuario,'alunos','editar'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const abasPermitidas = ['dados', ...(podeAcessar(usuario,'modelos') ? ['treinamento'] : []), ...(podeAcessar(usuario,'matriculas') ? ['matricula'] : []), ...(podeAcessar(usuario,'execucoes') ? ['acompanhamento','historico'] : []), ...(podeOrientarPortal ? ['portal'] : [])];
+  const abaSolicitada = searchParams.get('aba');
+  const abaAtiva = abasPermitidas.includes(abaSolicitada) ? abaSolicitada : (abasPermitidas.includes('treinamento') ? 'treinamento' : 'dados');
+  const setAbaAtiva = (aba) => setSearchParams({ aba }, { replace: true });
 
   // Modal para atribuir novo modelo
   const [modalAtribuirAberto, setModalAtribuirAberto] = useState(false);
@@ -67,33 +76,31 @@ export default function AlunoDetalhes() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  useEffect(() => {
-    carregarDadosCompletos();
-  }, [id]);
 
   const notificarSucesso = (msg) => {
     setErro('');
     setSucesso(msg);
   };
 
-  const notificarErro = (msg) => {
+  const notificarErro = useCallback((msg) => {
     setSucesso('');
     setErro(msg);
-  };
+  }, []);
 
-  const carregarDadosCompletos = async () => {
+  const carregarDadosCompletos = useCallback(async (signal) => {
     setCarregando(true);
     setErro('');
     try {
       const [resAluno, resModelosAluno, resTodosModelos, resMatriculas, resExecucoes] =
         await Promise.all([
-          api.get(`/alunos/${id}`),
-          api.get(`/alunos/${id}/modelos-treino`).catch(() => ({ data: [] })),
-          api.get('/modelos-treino', { params: { apenas_ativos: 1 } }).catch(() => ({ data: [] })),
-          api.get('/matriculas').catch(() => ({ data: [] })),
-          api.get('/execucoes-treino', { params: { alunoId: id } }).catch(() => ({ data: [] })),
+          api.get(`/alunos/${id}`, { signal }),
+          api.get(`/alunos/${id}/modelos-treino`, { signal }).catch(() => ({ data: [] })),
+          api.get('/modelos-treino', { signal, params: { apenas_ativos: 1 } }).catch(() => ({ data: [] })),
+          api.get('/matriculas', { signal }).catch(() => ({ data: [] })),
+          api.get('/execucoes-treino', { signal, params: { alunoId: id } }).catch(() => ({ data: [] })),
         ]);
 
+      if (signal?.aborted) return;
       setAluno(resAluno.data);
       setModelosAtribuidos(Array.isArray(resModelosAluno.data) ? resModelosAluno.data : []);
       setTodosModelos(Array.isArray(resTodosModelos.data) ? resTodosModelos.data : []);
@@ -104,12 +111,19 @@ export default function AlunoDetalhes() {
       const todasExecucoes = Array.isArray(resExecucoes.data) ? resExecucoes.data : [];
       setExecucoes(todasExecucoes.filter((e) => String(e.aluno_id) === String(id)));
     } catch (err) {
+      if (signal?.aborted) return;
       console.error(err);
       notificarErro('Erro ao carregar dados do aluno.');
     } finally {
-      setCarregando(false);
+      if (!signal?.aborted) setCarregando(false);
     }
-  };
+  }, [id, notificarErro]);
+
+  useEffect(() => {
+    const controle = new AbortController();
+    carregarDadosCompletos(controle.signal);
+    return () => controle.abort();
+  }, [carregarDadosCompletos]);
 
   // Modelos disponíveis que o aluno ainda não possui
   const modelosDisponiveisParaAdicionar = useMemo(() => {
@@ -222,7 +236,7 @@ export default function AlunoDetalhes() {
         <div className="form-card">
           <p>Aluno não encontrado.</p>
           <Link to="/alunos" className="treinamento-btn treinamento-btn--escuro">
-            ← Voltar para lista de alunos
+            <ArrowLeft size={16} aria-hidden="true" /> Voltar para lista de alunos
           </Link>
         </div>
       </div>
@@ -230,10 +244,12 @@ export default function AlunoDetalhes() {
   }
 
   return (
-    <div className="page-container treinamento-page">
+    <div className="page-container treinamento-page aluno-detalhes-page">
       {/* Cabeçalho do Aluno */}
-      <div className="page-header">
-        <div>
+      <div className="page-header aluno-perfil-header">
+        <div className="aluno-perfil-identidade">
+          <span className="aluno-perfil-avatar"><UserRound size={30} aria-hidden="true" /></span>
+          <div className="aluno-perfil-texto">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <h2>{aluno.nome}</h2>
             <span
@@ -247,10 +263,11 @@ export default function AlunoDetalhes() {
             CPF: {aluno.cpf || 'Não informado'} • Telefone: {aluno.telefone || 'Não informado'} • E-mail:{' '}
             {aluno.email || 'Não informado'}
           </p>
+          </div>
         </div>
         <div className="treinamento-acoes-header">
           <Link to="/alunos" className="treinamento-btn treinamento-btn--neutro">
-            ← Todos os Alunos
+            <ArrowLeft size={16} aria-hidden="true" /> Todos os Alunos
           </Link>
         </div>
       </div>
@@ -268,55 +285,64 @@ export default function AlunoDetalhes() {
       )}
 
       {/* Navegação por Abas */}
-      <div className="form-card" style={{ padding: '0.75rem', marginBottom: '1.25rem' }}>
-        <div className="treinamento-acoes-linha" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div className="form-card aluno-abas-card">
+        <div className="aluno-abas" role="group" aria-label="Seções do aluno">
           <button
             type="button"
-            onClick={() => setAbaAtiva('treinamento')} disabled={!podeAcessar(usuario,'modelos')}
+            aria-pressed={abaAtiva === 'treinamento'} onClick={() => setAbaAtiva('treinamento')} disabled={!podeAcessar(usuario,'modelos')}
             className={`treinamento-btn ${
               abaAtiva === 'treinamento' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
           >
-            🏋️ Treinamento ({modelosAtribuidos.length} modelos)
+            <Dumbbell size={16} aria-hidden="true" /> Treinamento ({modelosAtribuidos.length} modelos)
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('dados')}
+            aria-pressed={abaAtiva === 'dados'} onClick={() => setAbaAtiva('dados')}
             className={`treinamento-btn ${
               abaAtiva === 'dados' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
           >
-            📋 Dados Pessoais
+            <ClipboardList size={16} aria-hidden="true" /> Dados Pessoais
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('matricula')} disabled={!podeAcessar(usuario,'matriculas')}
+            aria-pressed={abaAtiva === 'matricula'} onClick={() => setAbaAtiva('matricula')} disabled={!podeAcessar(usuario,'matriculas')}
             className={`treinamento-btn ${
               abaAtiva === 'matricula' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
           >
-            💳 Matrícula & Planos ({matriculas.length})
+            <CreditCard size={16} aria-hidden="true" /> Matrícula & Planos ({matriculas.length})
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('acompanhamento')} disabled={!podeAcessar(usuario,'execucoes')}
+            aria-pressed={abaAtiva === 'acompanhamento'} onClick={() => setAbaAtiva('acompanhamento')} disabled={!podeAcessar(usuario,'execucoes')}
             className={`treinamento-btn ${
               abaAtiva === 'acompanhamento' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
           >
-            📈 Acompanhamento ({execucoes.length} sessões)
+            <ChartLine size={16} aria-hidden="true" /> Acompanhamento ({execucoes.length} sessões)
           </button>
           <button
             type="button"
-            onClick={() => setAbaAtiva('historico')} disabled={!podeAcessar(usuario,'execucoes')}
+            aria-pressed={abaAtiva === 'historico'} onClick={() => setAbaAtiva('historico')} disabled={!podeAcessar(usuario,'execucoes')}
             className={`treinamento-btn ${
               abaAtiva === 'historico' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
             }`}
           >
-            📜 Histórico Imutável
+            <History size={16} aria-hidden="true" /> Histórico Imutável
           </button>
+          {podeOrientarPortal && <button type="button" onClick={() => setAbaAtiva('portal')}
+            aria-pressed={abaAtiva === 'portal'}
+            className={`treinamento-btn ${abaAtiva === 'portal' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'}`}>
+            <Smartphone size={16} aria-hidden="true" /> Portal do Aluno
+          </button>}
         </div>
+
       </div>
+      {abaAtiva === 'portal' && podeOrientarPortal && (
+        <GestaoPortalAluno key={id} id={id} administrador={usuario?.cargo === 'admin'} />
+      )}
 
       {/* ABA: TREINAMENTO */}
       {abaAtiva === 'treinamento' && podeAcessar(usuario,'modelos') && (
@@ -338,7 +364,7 @@ export default function AlunoDetalhes() {
               }}
               className="treinamento-btn treinamento-btn--primario"
             >
-              + Atribuir Modelo ao Aluno
+              <Plus size={16} aria-hidden="true" /> Atribuir Modelo ao Aluno
             </button>
           </div>
 
@@ -391,7 +417,7 @@ export default function AlunoDetalhes() {
                           className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"
                           title="Edita o modelo compartilhado original (afeta todos os alunos vinculados)"
                         >
-                          ✏️ Editar Modelo Global
+                          <Pencil size={16} aria-hidden="true" /> Editar Modelo Global
                         </Link>
                         <button
                           type="button"
@@ -489,6 +515,9 @@ export default function AlunoDetalhes() {
       )}
 
       {/* ABA: DADOS PESSOAIS */}
+      {abaAtiva === 'dados' && usuario?.cargo === 'admin' &&
+        <CheckinFacial key={id} administrador aluno={Number(id)} />}
+
       {abaAtiva === 'dados' && (
         <div className="form-card">
           <h3>Ficha Cadastral do Aluno</h3>
@@ -658,6 +687,14 @@ export default function AlunoDetalhes() {
 
       {/* ABA: HISTÓRICO IMUTÁVEL */}
       {abaAtiva === 'historico' && podeAcessar(usuario,'execucoes') && (
+        <div className="form-card"><EvolucaoAluno key={id} aluno={id} /></div>
+      )}
+
+      {abaAtiva === 'historico' && podeAcessar(usuario,'execucoes') && (
+        <HistoricoExecucoesProfessor key={id} aluno={id} />
+      )}
+
+      {abaAtiva === 'historico' && podeAcessar(usuario,'execucoes') && (
         <div className="form-card">
           <div className="treinamento-tabela-header">
             <h3>Histórico Imutável de Execuções</h3>
@@ -731,7 +768,7 @@ export default function AlunoDetalhes() {
                 onClick={() => setModalAtribuirAberto(false)}
                 className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
               >
-                ✕
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 

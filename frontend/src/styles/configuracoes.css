@@ -1,44 +1,130 @@
-.config-academia {
-  --cfg-bg: #fff;
-  --cfg-soft: #f5f8fc;
-  --cfg-text: #243b55;
-  --cfg-muted: #52657b;
-  --cfg-border: #dce4ee;
-  --cfg-active: #103b70;
-  color: var(--cfg-text);
+.config-abas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
 }
-[data-theme="dark"] .config-academia {
-  --cfg-bg: #14243a;
-  --cfg-soft: #1c304a;
-  --cfg-text: #e2e8f0;
-  --cfg-muted: #b5c5d8;
-  --cfg-border: #354b66;
-  --cfg-active: #245d99;
+
+.config-aba {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 46px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-body);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
-.config-academia .config-subtitulo { color: var(--cfg-muted); margin: 6px 0 22px; }
-.config-academia .config-abas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.config-academia .config-aba {
-  display: inline-flex; align-items: center; gap: 8px; padding: 12px 15px;
-  border: 1px solid var(--cfg-border); border-radius: 8px;
-  background: var(--cfg-bg); color: var(--cfg-text); text-decoration: none;
-  font-size: 13px; font-weight: 600; line-height: 1.4;
+
+.config-aba svg { flex: none; }
+.config-aba:hover { background: var(--bg-subtle); }
+
+.config-aba.config-aba-ativa {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
-.config-academia .config-aba svg { flex-shrink: 0; }
-.config-academia .config-aba:hover { background: var(--cfg-soft); }
-.config-academia .config-aba.config-aba-ativa { background: var(--cfg-active); border-color: var(--cfg-active); color: #fff; }
-.config-academia .config-aba:focus-visible { outline: 2px solid #168bd2; outline-offset: 3px; }
-.config-academia .config-painel { background: var(--cfg-bg); color: var(--cfg-text); padding: 28px; border: 1px solid var(--cfg-border); border-radius: 14px; }
-.config-academia .config-painel h2 { margin: 0 0 22px; }
-.config-academia .config-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 24px; }
-.config-academia .config-dados > div { background: var(--cfg-soft); border: 1px solid var(--cfg-border); border-radius: 9px; padding: 16px; }
-.config-academia .config-dados dt { color: var(--cfg-muted); font-size: 13px; margin-bottom: 6px; }
-.config-academia .config-dados dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.config-academia .config-painel .campo { display: grid; gap: 14px; }
-.config-academia .config-painel fieldset { border: 1px solid var(--cfg-border); border-radius: 8px; padding: 14px; }
-.config-academia .config-painel fieldset label { display: inline-flex; align-items: center; gap: 6px; margin: 6px 16px 6px 0; }
-.config-academia .config-painel .relatorios-btn { background: var(--cfg-active); color: #fff; margin: 6px 8px 6px 0; }
-@media (max-width: 650px) {
-  .config-academia .config-dados { grid-template-columns: 1fr; }
-  .config-academia .config-painel { padding: 16px; }
-  .config-academia .config-aba { flex: 1 1 180px; }
+
+.config-painel h2 {
+  margin-bottom: 1rem;
+  color: var(--text-heading);
+  font-size: 1.25rem;
+}
+
+.config-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 0.75rem;
+}
+
+.config-dados > div,
+.config-painel fieldset {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.config-dados dt {
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.config-dados dd {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.config-painel .campo { gap: 0.85rem; }
+
+.config-painel .campo > button { align-self: flex-start; }
+
+.config-painel fieldset { min-width: 0; }
+
+.config-painel fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0.75rem 0.3rem 0;
+}
+
+.config-painel > :is(h3, ul, p, form),
+.config-painel .config-dados + * {
+  margin-top: 1rem;
+}
+
+.config-painel ul { padding-inline-start: 1.25rem; }
+
+.config-painel > button {
+  margin: 0.75rem 0.5rem 0 0;
+}
+
+.config-painel p a,
+.config-painel li a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+.config-logotipo {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 1rem;
+}
+
+.config-logotipo-conteudo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.config-logotipo-conteudo .campo {
+  flex: 1 1 230px;
+}
+
+.config-logotipo-conteudo img,
+.config-logotipo-vazio {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.config-logotipo-vazio {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
 }

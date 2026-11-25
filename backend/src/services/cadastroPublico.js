@@ -67,32 +67,39 @@ function validarDestino(email, config) {
   if (config.destinoTeste && email !== config.destinoTeste) throw erro(403,'Cadastro restrito ao destinatário de homologação.');
 }
 
-function validarDadosAcademia(corpo) {
-  const { tipo } = corpo;
-  if (!tipos.includes(tipo)) throw erro(400, 'Selecione um tipo de cadastro válido.');
-  const documento = normalizarDocumento(corpo.documento, tipo);
-  if (!documento) throw erro(400, tipo === 'pessoa_fisica' ? 'Informe um CPF válido.' : 'Informe um CNPJ válido.');
+function validarPerfilAcademia(corpo) {
   const cep = texto(corpo.cep, 9, 'CEP').replace('-', '');
   const uf = texto(corpo.uf, 2, 'UF').toUpperCase();
   if (!/^\d{8}$/.test(cep) || !ufs.includes(uf)) throw erro(400, 'Confira o CEP e a UF.');
   const cadastro = {
-    tipo, documento, cep, uf, email: emailValido(corpo.email),
+    cep, uf,
     fantasia: texto(corpo.nome_fantasia, 160, 'nome fantasia'),
-    razao: tipo === 'pessoa_fisica' ? null : texto(corpo.razao_social, 160, 'razão social'),
     comercial: telefone(corpo.whatsapp_comercial, 'WhatsApp comercial'),
     logradouro: texto(corpo.logradouro, 160, 'logradouro'),
     numero: texto(corpo.numero, 20, 'número'),
     complemento: texto(corpo.complemento, 100, 'complemento', false),
     bairro: texto(corpo.bairro, 100, 'bairro'),
     cidade: texto(corpo.cidade, 100, 'cidade'),
-    responsavel: texto(corpo.responsavel_nome, 160, 'nome do responsável'),
-    whatsapp: telefone(corpo.responsavel_whatsapp, 'WhatsApp do responsável'),
   };
   const normalizar = (valor) => valor.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   cadastro.unidade = JSON.stringify([cep, uf, cadastro.cidade, cadastro.logradouro,
     cadastro.numero.replace(/^0+(?=\d)/, ''), cadastro.complemento].map(normalizar));
   return cadastro;
+}
+
+function validarDadosAcademia(corpo) {
+  const { tipo } = corpo;
+  if (!tipos.includes(tipo)) throw erro(400, 'Selecione um tipo de cadastro válido.');
+  const documento = normalizarDocumento(corpo.documento, tipo);
+  if (!documento) throw erro(400, tipo === 'pessoa_fisica' ? 'Informe um CPF válido.' : 'Informe um CNPJ válido.');
+  return {
+    ...validarPerfilAcademia(corpo),
+    tipo, documento, email: emailValido(corpo.email),
+    razao: tipo === 'pessoa_fisica' ? null : texto(corpo.razao_social, 160, 'razão social'),
+    responsavel: texto(corpo.responsavel_nome, 160, 'nome do responsável'),
+    whatsapp: telefone(corpo.responsavel_whatsapp, 'WhatsApp do responsável'),
+  };
 }
 
 function validarCadastro(corpo, config) {
@@ -201,4 +208,4 @@ async function concluirCadastro(dados, desafio, codigo, config) {
   if (!resultado) throw invalido();
 }
 
-module.exports = { configuracao, emailValido, validarCadastro, validarDadosAcademia, solicitarCodigo, concluirCadastro, tipos, ufs };
+module.exports = { configuracao, emailValido, validarCadastro, validarDadosAcademia, validarPerfilAcademia, solicitarCodigo, concluirCadastro, tipos, ufs };

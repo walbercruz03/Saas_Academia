@@ -1,6 +1,7 @@
+import { ArrowLeft, Dumbbell, Gauge, Pencil, Plus, Power, Save, Trash2, X } from 'lucide-react';
 import { podeAcessar } from '../permissoesProfessor';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
@@ -45,21 +46,18 @@ export default function ConfiguracoesTreino() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
 
   const notificarSucesso = (msg) => {
     setErro('');
     setSucesso(msg);
   };
 
-  const notificarErro = (msg) => {
+  const notificarErro = useCallback((msg) => {
     setSucesso('');
     setErro(msg);
-  };
+  }, []);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     setCarregando(true);
     setErro('');
     try {
@@ -79,7 +77,11 @@ export default function ConfiguracoesTreino() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [notificarErro]);
+
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   // --- MODALIDADES ---
   const modalidadesFiltradas = useMemo(() => {
@@ -293,7 +295,7 @@ export default function ConfiguracoesTreino() {
     <div className="page-container treinamento-page">
       <div className="page-header">
         <div>
-          <h2>Configurações de Treinamento</h2>
+          <h1>Configurações de treinamento</h1>
           <p>Gerenciamento de modalidades esportivas e níveis de dificuldade para treinos e modelos</p>
         </div>
         <div className="treinamento-acoes-header">
@@ -303,7 +305,7 @@ export default function ConfiguracoesTreino() {
               disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovaModalidade}
               className="treinamento-btn treinamento-btn--primario"
             >
-              + Nova Modalidade
+              <Plus size={16} aria-hidden="true" /> Nova modalidade
             </button>
           ) : (
             <button
@@ -311,10 +313,10 @@ export default function ConfiguracoesTreino() {
               disabled={!podeAcessar(usuarioAtual,'catalogo','criar')} onClick={abrirNovoNivel}
               className="treinamento-btn treinamento-btn--primario"
             >
-              + Novo Nível
+              <Plus size={16} aria-hidden="true" /> Novo nível
             </button>
           )}
-          <Link to="/dashboard">← Voltar</Link>
+          <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} aria-hidden="true" /> Voltar</Link>
         </div>
       </div>
 
@@ -331,27 +333,27 @@ export default function ConfiguracoesTreino() {
       )}
 
       {/* Seletor de Abas */}
-      <div className="form-card" style={{ padding: '0.75rem', marginBottom: '1.25rem' }}>
-        <div className="treinamento-acoes-linha" style={{ gap: '0.5rem' }}>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('modalidades')}
-            className={`treinamento-btn ${
-              abaAtiva === 'modalidades' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
-            }`}
-          >
-            🏋️ Modalidades ({modalidades.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('niveis')}
-            className={`treinamento-btn ${
-              abaAtiva === 'niveis' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
-            }`}
-          >
-            🎯 Níveis de Dificuldade ({niveis.length})
-          </button>
-        </div>
+      <div className="treinamento-abas treinamento-acoes-linha" role="group" aria-label="Seções de treinamento">
+        <button
+          type="button"
+          onClick={() => setAbaAtiva('modalidades')}
+          aria-pressed={abaAtiva === 'modalidades'}
+          className={`treinamento-btn ${
+            abaAtiva === 'modalidades' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
+          }`}
+        >
+          <Dumbbell size={16} aria-hidden="true" /> Modalidades ({modalidades.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbaAtiva('niveis')}
+          aria-pressed={abaAtiva === 'niveis'}
+          className={`treinamento-btn ${
+            abaAtiva === 'niveis' ? 'treinamento-btn--escuro' : 'treinamento-btn--neutro'
+          }`}
+        >
+          <Gauge size={16} aria-hidden="true" /> Níveis de Dificuldade ({niveis.length})
+        </button>
       </div>
 
       {/* ABA 1: MODALIDADES */}
@@ -407,7 +409,7 @@ export default function ConfiguracoesTreino() {
             ) : modalidadesFiltradas.length === 0 ? (
               <div>Nenhuma modalidade encontrada.</div>
             ) : (
-              <div className="treinamento-tabela-wrap">
+              <div className="treinamento-tabela-wrap" role="region" aria-label="Modalidades esportivas" tabIndex={0}>
                 <table className="treinamento-tabela">
                   <thead>
                     <tr>
@@ -446,7 +448,7 @@ export default function ConfiguracoesTreino() {
                               disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarModalidade(mod)}
                               className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                             >
-                              Editar
+                              <Pencil size={15} aria-hidden="true" /> Editar
                             </button>
                             <button
                               type="button"
@@ -457,6 +459,7 @@ export default function ConfiguracoesTreino() {
                                   : 'treinamento-btn--suave-verde'
                               } treinamento-btn--sm`}
                             >
+                              <Power size={15} aria-hidden="true" />
                               {mod.ativo === 1 ? 'Desativar' : 'Ativar'}
                             </button>
                             <button
@@ -464,7 +467,7 @@ export default function ConfiguracoesTreino() {
                               disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluirModalidade(mod)}
                               className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                             >
-                              Excluir
+                              <Trash2 size={15} aria-hidden="true" /> Excluir
                             </button>
                           </div>
                         </td>
@@ -513,7 +516,7 @@ export default function ConfiguracoesTreino() {
             ) : niveis.length === 0 ? (
               <div>Nenhum nível cadastrado.</div>
             ) : (
-              <div className="treinamento-tabela-wrap">
+              <div className="treinamento-tabela-wrap" role="region" aria-label="Níveis de dificuldade" tabIndex={0}>
                 <table className="treinamento-tabela">
                   <thead>
                     <tr>
@@ -558,7 +561,7 @@ export default function ConfiguracoesTreino() {
                               disabled={!podeAcessar(usuarioAtual,'catalogo','editar')} onClick={() => abrirEditarNivel(niv)}
                               className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                             >
-                              Editar
+                              <Pencil size={15} aria-hidden="true" /> Editar
                             </button>
                             <button
                               type="button"
@@ -569,6 +572,7 @@ export default function ConfiguracoesTreino() {
                                   : 'treinamento-btn--suave-verde'
                               } treinamento-btn--sm`}
                             >
+                              <Power size={15} aria-hidden="true" />
                               {niv.ativo === 1 ? 'Desativar' : 'Ativar'}
                             </button>
                             <button
@@ -576,7 +580,7 @@ export default function ConfiguracoesTreino() {
                               disabled={!podeAcessar(usuarioAtual,'catalogo','excluir')} onClick={() => handleExcluirNivel(niv)}
                               className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                             >
-                              Excluir
+                              <Trash2 size={15} aria-hidden="true" /> Excluir
                             </button>
                           </div>
                         </td>
@@ -599,9 +603,10 @@ export default function ConfiguracoesTreino() {
               <button
                 type="button"
                 onClick={fecharModalModalidade}
+                aria-label="Fechar formulário"
                 className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
               >
-                ✕
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
@@ -655,6 +660,7 @@ export default function ConfiguracoesTreino() {
                   disabled={salvando}
                   className="treinamento-btn treinamento-btn--escuro"
                 >
+                  <Save size={16} aria-hidden="true" />
                   {salvando ? 'Salvando...' : 'Salvar Modalidade'}
                 </button>
               </div>
@@ -672,9 +678,10 @@ export default function ConfiguracoesTreino() {
               <button
                 type="button"
                 onClick={fecharModalNivel}
+                aria-label="Fechar formulário"
                 className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
               >
-                ✕
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
@@ -741,6 +748,7 @@ export default function ConfiguracoesTreino() {
                   disabled={salvando}
                   className="treinamento-btn treinamento-btn--escuro"
                 >
+                  <Save size={16} aria-hidden="true" />
                   {salvando ? 'Salvando...' : 'Salvar Nível'}
                 </button>
               </div>

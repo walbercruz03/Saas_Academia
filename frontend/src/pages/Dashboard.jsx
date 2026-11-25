@@ -1,3 +1,4 @@
+import OnboardingAcademia from '../components/OnboardingAcademia';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -187,7 +188,7 @@ export default function Dashboard() {
 
   if (carregando) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
         Carregando painel...
       </div>
     );
@@ -208,6 +209,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {financeiroDisponivel && <OnboardingAcademia key={`${usuario.academia_id}:${usuario.id}`} usuario={usuario} />}
+
       {erro && (
         <div
           style={{
@@ -225,17 +228,17 @@ export default function Dashboard() {
       {/* Grid de Estatísticas Existentes */}
       <div className="stats-grid">
         <div className="stat-card" style={{ borderTop: '4px solid #2563eb' }}>
-          <h3 style={{ margin: 0, fontSize: '0.80rem', color: '#64748b', textTransform: 'uppercase' }}>
+          <h3 style={{ margin: 0, fontSize: '0.80rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             Total de Alunos
           </h3>
-          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#1e293b' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-heading)' }}>
             {stats?.total_alunos ?? 0}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Alunos cadastrados</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #7c3aed' }}>
-          <h3 style={{ margin: 0, fontSize: '0.80rem', color: '#64748b', textTransform: 'uppercase' }}>
+          <h3 style={{ margin: 0, fontSize: '0.80rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             Planos Cadastrados
           </h3>
           <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#7c3aed' }}>
@@ -245,7 +248,7 @@ export default function Dashboard() {
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #0891b2' }}>
-          <h3 style={{ margin: 0, fontSize: '0.80rem', color: '#64748b', textTransform: 'uppercase' }}>
+          <h3 style={{ margin: 0, fontSize: '0.80rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             Matrículas Ativas
           </h3>
           <div style={{ fontSize: '1.85rem', fontWeight: '800', color: '#0891b2' }}>
@@ -259,13 +262,13 @@ export default function Dashboard() {
       <div className="dashboard-grid-charts">
         <div
           style={{
-            background: '#fff',
+            background: 'var(--bg-card)',
             padding: '1.5rem',
             borderRadius: '12px',
             boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: '#1e293b', fontSize: '1rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-heading)', fontSize: '1rem' }}>
             Valor Contratado por Mês (R$)
           </h3>
           <div style={{ width: '100%', height: 260 }}>
@@ -296,13 +299,13 @@ export default function Dashboard() {
 
         <div
           style={{
-            background: '#fff',
+            background: 'var(--bg-card)',
             padding: '1.5rem',
             borderRadius: '12px',
             boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: '#1e293b', fontSize: '1rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-heading)', fontSize: '1rem' }}>
             Status das Matrículas
           </h3>
           <div style={{ width: '100%', height: 260 }}>
@@ -680,7 +683,7 @@ export default function Dashboard() {
               {abaDetalhe === 'financeiro' && (
                 <div className="relatorio-tabela-wrapper">
                   <div style={{ padding: '1rem' }}>
-                    <p style={{ margin: '0 0 0.75rem', color: '#1e293b' }}>
+                    <p style={{ margin: '0 0 0.75rem', color: 'var(--text-heading)' }}>
                       <strong>Valor contratado nas matrículas do período:</strong>{' '}
                       {formatarMoeda(financeiro?.valorContratadoPeriodo ?? 0)}
                     </p>

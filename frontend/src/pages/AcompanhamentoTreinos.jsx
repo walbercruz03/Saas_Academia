@@ -1,3 +1,4 @@
+import { ArrowLeft, Trash2, X } from 'lucide-react';
 import { podeAcessar } from '../permissoesProfessor';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
@@ -386,7 +387,7 @@ export default function AcompanhamentoTreinos() {
           <h2>Acompanhamento de Treinos</h2>
           <p>Histórico imutável de execução, evolução de cargas e frequência dos alunos</p>
         </div>
-        <Link to="/dashboard" className="btn-voltar">← Voltar</Link>
+        <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} aria-hidden="true" /> Voltar</Link>
       </div>
 
       {erro && (
@@ -668,7 +669,7 @@ export default function AcompanhamentoTreinos() {
             Nenhuma execução de treino registrada até o momento.
           </div>
         ) : (
-          <div className="treinamento-tabela-wrap">
+          <div className="treinamento-tabela-wrap" role="region" aria-label="Registros de acompanhamento" tabIndex={0}>
             <table className="treinamento-tabela">
               <thead>
                 <tr>
@@ -734,7 +735,7 @@ export default function AcompanhamentoTreinos() {
                         className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                         style={{ fontSize: '0.75rem', padding: '3px 8px' }}
                       >
-                        Excluir
+                        <Trash2 size={16} aria-hidden="true" /> Excluir
                       </button>
                     </td>
                   </tr>
@@ -781,13 +782,12 @@ export default function AcompanhamentoTreinos() {
                 type="button" 
                 onClick={() => setSnapshotVisualizar(null)} 
                 className="btn-icon"
-                style={{ fontSize: '1.25rem' }}
-              >
-                ✕
+                style={{ fontSize: '1.25rem' }} aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
-            <div style={{ background: '#f3f4f6', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            <div style={{ background: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '1rem' }}>
               <div><strong>Aluno:</strong> {obterNomeAluno(snapshotVisualizar)}</div>
               <div><strong>Data:</strong> {formatarDataCurta(snapshotVisualizar.data_execucao)}</div>
               <div><strong>Modelo:</strong> {snapshotVisualizar.modelo_nome || snapshotVisualizar.snapshot_treino?.modelo_nome}</div>

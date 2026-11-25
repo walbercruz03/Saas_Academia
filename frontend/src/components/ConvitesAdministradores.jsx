@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useEffect, useRef, useState } from 'react';
 import { solicitar } from '../apiSuperAdmin';
 
@@ -238,3 +239,9 @@ export default function ConvitesAdministradores({ academia, sessaoEncerrada, ver
     </section>
   );
 }
+
+ConvitesAdministradores.propTypes = {
+  academia: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  sessaoEncerrada: PropTypes.func.isRequired,
+  versao: PropTypes.number.isRequired,
+};

@@ -1,14 +1,8 @@
+import PropTypes from 'prop-types';
+import { rotulosGestao } from '../rotulosGestao';
 import { useEffect, useRef, useState } from 'react';
 import { solicitar } from '../apiSuperAdmin';
 
-export const rotulosGestao = {
-  administrador_editar: 'Dados editados', administrador_desativar: 'Conta desativada',
-  administrador_excluir_definitivamente: 'Conta excluída definitivamente',
-  administrador_reativar: 'Conta reativada', administrador_excluir: 'Conta excluída logicamente',
-  administrador_revogar: 'Sessão revogada', administrador_email_solicitado: 'Alteração de e-mail solicitada',
-  administrador_email_confirmado: 'E-mail confirmado', administrador_senha_solicitado: 'Redefinição de senha solicitada',
-  administrador_senha_confirmado: 'Senha redefinida',
-};
 const dataHora = new Intl.DateTimeFormat('pt-BR',{ dateStyle:'short',timeStyle:'short',timeZone:'America/Fortaleza' });
 
 export default function GestaoAdministrador({ id, nome, fechar, atualizar, sessaoEncerrada }) {
@@ -135,3 +129,11 @@ export default function GestaoAdministrador({ id, nome, fechar, atualizar, sessa
     </>}
   </section>;
 }
+
+GestaoAdministrador.propTypes = {
+  id: PropTypes.number.isRequired,
+  nome: PropTypes.string.isRequired,
+  fechar: PropTypes.func.isRequired,
+  atualizar: PropTypes.func.isRequired,
+  sessaoEncerrada: PropTypes.func.isRequired,
+};

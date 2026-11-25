@@ -1,3 +1,4 @@
+import CheckinFacial from '../components/CheckinFacial';
 import { podeAcessar } from '../permissoesProfessor';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -266,6 +267,8 @@ export default function Checkin() {
         </details>
       )}
 
+      <CheckinFacial administrador={Boolean(academiaAdministrada)} aoCheckin={() => carregarCheckins()} />
+
       <div className="form-card">
         <h3 style={{ marginTop: 0 }}>Buscar Aluno</h3>
         <form onSubmit={buscarAluno} className="form-grid form-checkin">
@@ -364,33 +367,35 @@ export default function Checkin() {
         )}
       </div>
 
-      <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: '#111827' }}>Check-ins Recentes</h3>
+      <h3 className="titulo-listagem">Check-ins Recentes</h3>
       {carregandoHistorico && <p role="status">Carregando histórico…</p>}
       {checkins.length === 0 && !carregandoHistorico ? (
         <div className="lista-vazia">Nenhum check-in registrado.</div>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>CPF</th>
-              <th>Data/Hora</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {checkins.map((c) => (
-              <tr key={c.id}>
-                <td>{c.aluno_nome}</td>
-                <td>{c.aluno_cpf}</td>
-                <td>{new Date(c.data_checkin).toLocaleString('pt-BR')}</td>
-                <td>
-                  <span className={`badge badge-${c.status}`}>{c.status}</span>
-                </td>
+        <div className="tabela-scroll" role="region" aria-label="Tabela de check-ins" tabIndex={0}>
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>CPF</th>
+                <th>Data/Hora</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {checkins.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.aluno_nome}</td>
+                  <td>{c.aluno_cpf}</td>
+                  <td>{new Date(c.data_checkin).toLocaleString('pt-BR')}</td>
+                  <td>
+                    <span className={`badge badge-${c.status}`}>{c.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {(paginaHistorico > 1 || temMaisCheckins) && <div className="btn-grupo">
         <button type="button" className="btn-outline" disabled={carregandoHistorico || paginaHistorico <= 1}

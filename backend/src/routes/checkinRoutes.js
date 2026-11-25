@@ -12,6 +12,8 @@ router.get('/buscar-aluno', authMiddleware, checkinController.buscarAluno);
 router.get('/politica-inadimplencia', authMiddleware, isAdminMiddleware, checkinController.buscarPolitica);
 router.put('/politica-inadimplencia', authMiddleware, isAdminMiddleware, checkinController.salvarPolitica);
 
+require('./checkinFacial')(router,authMiddleware,isAdminMiddleware,checkinController);
+
 // Realizar check-in (auth - admin e professor)
 router.post('/', authMiddleware, checkinController.realizarCheckin);
 

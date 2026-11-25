@@ -298,7 +298,7 @@ export default function Treinos() {
     <div className="page-container treinamento-page treinos-modernos">
       <div className="page-header">
         <div>
-          <h2>Treinos dos Alunos</h2>
+          <h1>Treinos dos alunos</h1>
           <p>Prescrição, montagem com biblioteca de exercícios e envio de fichas para alunos</p>
         </div>
         <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} /> Voltar</Link>
@@ -393,7 +393,7 @@ export default function Treinos() {
                     key={itemBib.id}
                     type="button"
                     onClick={() => adicionarLinhaExercicio(itemBib)}
-                    className="treinamento-chip treinamento-chip--ativo-azul"
+                    className="treinamento-chip"
                   >
                     + {itemBib.nome}
                   </button>
@@ -415,27 +415,29 @@ export default function Treinos() {
                       type="button"
                       disabled={index === 0}
                       onClick={() => moverExercicio(index, -1)}
-                      title="Mover para cima"
+                      aria-label="Mover exercício para cima" title="Mover para cima"
                       className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                     >
-                      <ArrowUp size={16} />
+                      <ArrowUp size={16} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       disabled={index === exercicios.length - 1}
                       onClick={() => moverExercicio(index, 1)}
-                      title="Mover para baixo"
+                      aria-label="Mover exercício para baixo" title="Mover para baixo"
                       className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
                     >
-                      <ArrowDown size={16} />
+                      <ArrowDown size={16} aria-hidden="true" />
                     </button>
                     {exercicios.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removerLinhaExercicio(index)}
+                        aria-label="Remover exercício"
+                        title="Remover exercício"
                         className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -575,7 +577,6 @@ export default function Treinos() {
                     <Link
                       to={`/alunos/${alunoObj.id}`}
                       className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-                      style={{ textDecoration: 'none', textAlign: 'center' }}
                       title="Ver ficha completa, modelos e histórico do aluno"
                     >
                       <ClipboardList size={15} /> Ver Ficha
@@ -585,16 +586,16 @@ export default function Treinos() {
                     href={gerarLinkWhatsApp(t)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-whatsapp"
+                    className="treinamento-btn treinamento-btn--suave-verde treinamento-btn--sm"
                   >
                     <MessageCircle size={15} /> WhatsApp
                   </a>
                   <button
                     type="button"
                     disabled={!podeAcessar(usuarioAtual,'treinos','excluir')} onClick={() => excluirTreino(t.id)}
-                    className="btn-excluir-treino"
+                    className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"
                   >
-                    Excluir
+                    <Trash2 size={16} aria-hidden="true" /> Excluir
                   </button>
                 </div>
               </div>

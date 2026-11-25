@@ -1,4 +1,54 @@
-cruz@cruz-22V280-L-BY31P1:~/meu_saas$ docker compose exec backend node utils/criarSuperAdmin.js
+# Wc Fit
+
+## Acessos locais
+
+| Área | Endereço |
+| --- | --- |
+| Página comercial | [localhost](http://localhost/) |
+| Cadastro público, quando liberado no ambiente | [localhost/cadastro](http://localhost/cadastro) |
+| Administradores e professores | [localhost/login](http://localhost/login) |
+| Portal do Aluno | [localhost/aluno/login](http://localhost/aluno/login) |
+| Evolução do aluno | [localhost/aluno/evolucao](http://localhost/aluno/evolucao) |
+| Administração global | [localhost/super-admin/login](http://localhost/super-admin/login) |
+
+O Wc Fit reúne gestão de alunos, professores, matrículas, planos, check-in,
+treinos, financeiro e relatórios. Administradores acompanham a configuração
+no Dashboard. No Portal do Aluno, o aluno consulta fichas e matrículas,
+registra séries e descanso, retoma treinos e consulta histórico, recordes e
+metas. Professores responsáveis acompanham seus alunos conforme as permissões.
+
+### Primeiro acesso e PWA
+
+1. Cadastre um aluno ativo com CPF válido e prescreva uma ficha de treino.
+2. Em **Alunos → Detalhes → Portal do Aluno**, vincule o professor responsável
+   e clique em **Liberar com código**. Entregue o código por um canal privado
+   após confirmar a identidade do aluno. Ele vale por 30 minutos e é de uso único.
+3. Em **Primeiro acesso ou esqueci a senha**, informe CPF e código e defina
+   uma senha. Em **Treinos**, abra a ficha e inicie a sessão.
+4. O professor autorizado consulta histórico e evolução em **Alunos →
+   Detalhes → Histórico Imutável**. A meta semanal é editada na aba
+   **Portal do Aluno** do mesmo cadastro.
+
+O ícone instalado abre `/aluno/`. Use **Instalar aplicativo** quando o
+navegador oferecer a opção. No iPhone, use o menu de compartilhamento do Safari
+para adicionar o portal à tela inicial. A sessão é validada pelo servidor,
+e somente a página pública de indisponibilidade e seu ícone ficam no cache
+da PWA. O progresso exibido ao reconectar vem do servidor.
+
+### Pendências de publicação
+
+- Validar instalação, inicialização e retorno da conexão em Android e
+  iPhone reais usando um endereço HTTPS acessível aos dispositivos.
+- Concluir a ativação Pix e o checkout hospedado Asaas Sandbox.
+- Configurar a origem pública e o e-mail oficial de contato da página comercial.
+  O cadastro público e os links jurídicos seguem a configuração do ambiente
+  e a aprovação dos documentos.
+- A seção de avaliações físicas aguarda uma fonte autorizada de registros.
+
+Para preparar e verificar o frontend, execute `npm --prefix frontend ci`,
+`npm --prefix frontend run lint` e `npm --prefix frontend run build`.
+Consulte também o [README do frontend](frontend/README.md).
+
 ## Desempenho e dependências do backend
 
 A migration 013 adiciona índices de consulta por academia a check-ins,
@@ -17,10 +67,10 @@ as dependências de desenvolvimento.
 
 ### Banco, backup e restauração
 
-O catálogo do PostgreSQL local confirmou as migrations JavaScript 001–004 e
-as estruturas SQL 005–007. As migrations SQL 008–013 estão pendentes. O
-runner executa as migrations JavaScript. Aplique os arquivos SQL por versão,
-após verificar o catálogo e registrar o resultado de cada aplicação.
+O catálogo do ambiente local validado na Etapa 8 confirmou as migrations
+001–020. O runner registra as migrations JavaScript 001–004. Para as
+migrations SQL, confira as estruturas no catálogo do destino e aplique
+somente as que estiverem pendentes, em ordem.
 
 Gere o backup em diretório privado, fora do Git, antes de cada liberação.
 O script usa `pg_dump -Fc`, inspeciona o arquivo e registra SHA-256.
@@ -38,15 +88,10 @@ A restauração fica em uma transação e interrompe ao primeiro erro.
 docker exec -i "$PG_CONT_ENSAIO" pg_restore --exit-on-error --single-transaction \
   -U wcfit_admin -d wcfit_teste < "$DIRETORIO_BACKUP/wcfit.dump"
 
-for arquivo in backend/src/migrations/00[89]*.up.sql backend/src/migrations/01[0-3]*.up.sql; do
-  docker exec -i "$PG_CONT_ENSAIO" psql -X -v ON_ERROR_STOP=1 \
-    -U wcfit_admin -d wcfit_teste < "$arquivo" || exit 1
-done
+
 ```
 
-Esse intervalo pressupõe a restauração de um backup com 005–007 já
-presentes. A 013 usa índices concorrentes e precisa rodar fora de uma
-transação. Verifique `pg_index.indisvalid` para os três índices após a
+Se a 013 estiver pendente no destino, aplique-a fora de uma transação. Verifique `pg_index.indisvalid` para os três índices após a
 aplicação. Se um build concorrente falhar, identifique o índice inválido
 antes de recuperar o passo. Pare diante de uma migration parcialmente
 aplicada e compare o catálogo com seu arquivo, sem reexecutar toda a série.

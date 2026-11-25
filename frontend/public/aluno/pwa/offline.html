@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="wcfit-offline" content="public">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#091d37">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Conexão indisponível — Wc Fit</title>
+  <style>
+    :root { color-scheme:light dark; --fundo:#edf3f7; --cartao:#fff; --texto:#10243c; --suave:#425770; --borda:#d6e2ec; }
+    @media (prefers-color-scheme:dark) { :root { --fundo:#0d1728; --cartao:#14243a; --texto:#edf4fa; --suave:#bdd0de; --borda:#344960; } }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; min-height:100dvh; display:grid; place-items:center; background:var(--fundo); color:var(--texto);
+      font:1rem/1.55 system-ui,sans-serif; padding:max(1rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right)) max(1rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left)); }
+    main { width:min(100%,30rem); padding:clamp(1.2rem,5vw,2rem); border-radius:18px; border:1px solid var(--borda); background:var(--cartao); }
+    img { width:64px; height:64px; border-radius:14px; }
+    p { color:var(--suave); }
+    h1 { font-size:clamp(1.65rem,6vw,2.15rem); line-height:1.15; margin:.6rem 0; }
+    button { min-height:48px; padding:.55rem 1rem; border:0; border-radius:10px; font:inherit; font-weight:750; color:#082b24; background:#a3efc7; cursor:pointer; }
+    button:focus-visible { outline:3px solid #137254; outline-offset:3px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/aluno/pwa/icone-192.png" width="64" height="64" alt="Wc Fit">
+    <h1>Conexão indisponível</h1>
+    <p>Conecte-se à internet para validar sua sessão e abrir o Portal do Aluno.</p>
+    <p>Ao reconectar, o portal consulta o progresso confirmado pelo servidor.</p>
+    <form method="get"><button type="submit">Tentar novamente</button></form>
+  </main>
+</body>
+</html>

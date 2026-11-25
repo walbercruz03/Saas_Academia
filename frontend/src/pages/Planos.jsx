@@ -1,14 +1,12 @@
+import { Pencil, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
-import '../styles/plano.css';
 
 export default function Planos() {
   const [planos, setPlanos] = useState([]);
   const [plano, setPlano] = useState({ nome: '', descricao: '', preco: '', duracao_meses: '', status: 'ativo' });
-  const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
-  const academiaId = usuario.academia_id || null;
   const [editingId, setEditingId] = useState(null);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -140,35 +138,37 @@ export default function Planos() {
         </form>
       </div>
 
-      <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: '#111827' }}>Planos Cadastrados</h3>
+      <h3 className="titulo-listagem">Planos Cadastrados</h3>
       {planos.length === 0 ? (
         <div className="lista-vazia">Nenhum plano cadastrado.</div>
       ) : (
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Preço</th>
-              <th>Duração</th>
-              <th>Status</th>
-              <th className="acao-col">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {planos.map((p) => (
-              <tr key={p.id}>
-                <td><strong>{p.nome}</strong></td>
-                <td>{Number(p.preco || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                <td>{p.duracao_meses} mês(es)</td>
-                <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
-                <td className="acao-col">
-                  <button onClick={() => editar(p)} className="btn-icon">Editar</button>
-                  <button onClick={() => excluir(p.id)} className="btn-icon" style={{ color: '#dc2626' }}>Excluir</button>
-                </td>
+        <div className="tabela-scroll" role="region" aria-label="Tabela de planos" tabIndex={0}>
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Preço</th>
+                <th>Duração</th>
+                <th>Status</th>
+                <th className="acao-col">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {planos.map((p) => (
+                <tr key={p.id}>
+                  <td><strong>{p.nome}</strong></td>
+                  <td>{Number(p.preco || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td>{p.duracao_meses} mês(es)</td>
+                  <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
+                  <td className="acao-col">
+                    <button onClick={() => editar(p)} className="btn-icon"><Pencil size={16} aria-hidden="true" /> Editar</button>
+                    <button onClick={() => excluir(p.id)} className="btn-icon btn-icon--perigo"><Trash2 size={16} aria-hidden="true" /> Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

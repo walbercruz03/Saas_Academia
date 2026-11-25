@@ -1,6 +1,8 @@
+import AutorizacaoImagemPortal from '../components/AutorizacaoImagemPortal';
+import { ArrowLeft, Copy, Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { podeAcessar } from '../permissoesProfessor';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import '../styles/styles.css';
@@ -48,9 +50,6 @@ export default function Exercicios() {
   const academiaId = usuario.academia_id == null ? null : Number(usuario.academia_id);
   const ehAdminGlobal = usuario.cargo === 'admin' && academiaId === 0;
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -61,17 +60,17 @@ export default function Exercicios() {
     setSucesso(msg);
   };
 
-  const notificarErro = (msg) => {
+  const notificarErro = useCallback((msg) => {
     setSucesso('');
     setErro(msg);
-  };
+  }, []);
 
   // Verificar se exercício é da biblioteca global (academia_id = 0)
   const ehExercicioGlobal = (ex) => {
     return ex.academia_id != null && Number(ex.academia_id) === 0;
   };
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     setCarregando(true);
     setErro('');
     try {
@@ -100,7 +99,11 @@ export default function Exercicios() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [notificarErro]);
+
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   const obterRotuloDificuldade = useMemo(() => {
     const mapa = {};
@@ -342,9 +345,9 @@ export default function Exercicios() {
             disabled={!podeAcessar(usuarioAtual,'exercicios','criar')} onClick={abrirNovoModal}
             className="treinamento-btn treinamento-btn--primario"
           >
-            + Novo Exercício
+            <Plus size={16} aria-hidden="true" /> Novo Exercício
           </button>
-          <Link to="/dashboard">← Voltar</Link>
+          <Link to="/dashboard" className="btn-voltar"><ArrowLeft size={16} aria-hidden="true" /> Voltar</Link>
         </div>
       </div>
 
@@ -467,7 +470,7 @@ export default function Exercicios() {
         ) : exerciciosPaginados.length === 0 ? (
           <div>Nenhum exercício encontrado com os filtros selecionados.</div>
         ) : (
-          <div className="treinamento-tabela-wrap">
+          <div className="treinamento-tabela-wrap" role="region" aria-label="Biblioteca de exercícios" tabIndex={0}>
             <table className="treinamento-tabela">
               <thead>
                 <tr>
@@ -530,13 +533,13 @@ export default function Exercicios() {
 
                       <td>
                         <div className="treinamento-acoes-linha">
-                          <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Visualizar</button>
+                          <button type="button" onClick={() => setDetalheExercicio(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"><Eye size={16} aria-hidden="true" /> Visualizar</button>
                           {podeEditar && <>
-                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','editar')} onClick={() => abrirEditarModal(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm">Editar</button>
-                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','excluir')} onClick={() => handleExcluir(ex)} className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm">Excluir</button>
+                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','editar')} onClick={() => abrirEditarModal(ex)} className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"><Pencil size={16} aria-hidden="true" /> Editar</button>
+                            <button type="button" disabled={!podeAcessar(usuarioAtual,'exercicios','excluir')} onClick={() => handleExcluir(ex)} className="treinamento-btn treinamento-btn--perigo treinamento-btn--sm"><Trash2 size={16} aria-hidden="true" /> Excluir</button>
                           </>}
                           {ehGlobal && academiaId != null && academiaId > 0 && (
-                            <button type="button" disabled={salvando} onClick={() => duplicarExercicio(ex)} className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm">Duplicar</button>
+                            <button type="button" disabled={salvando} onClick={() => duplicarExercicio(ex)} className="treinamento-btn treinamento-btn--suave-azul treinamento-btn--sm"><Copy size={16} aria-hidden="true" /> Duplicar</button>
                           )}
                         </div>
                       </td>
@@ -583,9 +586,8 @@ export default function Exercicios() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-              >
-                ✕
+                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -768,9 +770,8 @@ export default function Exercicios() {
               <button
                 type="button"
                 onClick={() => setDetalheExercicio(null)}
-                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm"
-              >
-                ✕
+                className="treinamento-btn treinamento-btn--neutro treinamento-btn--sm" aria-label="Fechar">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -786,6 +787,11 @@ export default function Exercicios() {
                 <strong>Instruções de Execução: </strong>
                 {detalheExercicio.instrucoes}
               </p>
+            )}
+
+            {detalheExercicio.imagem_url && usuarioAtual?.cargo === 'admin' &&
+              Number(detalheExercicio.academia_id) === Number(usuarioAtual.academia_id) && (
+              <AutorizacaoImagemPortal key={detalheExercicio.id} id={detalheExercicio.id} />
             )}
 
             {detalheExercicio.imagem_url && (

@@ -1,20 +1,7 @@
+import PropTypes from 'prop-types';
+import { situacoesAcademia } from '../situacoesAcademia';
 import { useEffect, useRef, useState } from 'react';
 import { solicitar } from '../apiSuperAdmin';
-
-export const situacoesAcademia = {
-  ativa: 'Ativa',
-  excluida: 'Excluída',
-  aguardando_ativacao: 'Aguardando primeira ativação',
-  suspensa: 'Suspensa',
-  inativa_indeterminada: 'Inativa de origem indeterminada',
-};
-
-export const acoesAcademia = {
-  ativa: ['suspender', 'Suspender'],
-  aguardando_ativacao: ['ativar', 'Ativar'],
-  suspensa: ['reativar', 'Reativar'],
-  inativa_indeterminada: ['regularizar', 'Regularizar'],
-};
 
 const nomes = { excluir: 'Excluir academia', 'excluir-definitivamente': 'Excluir definitivamente',
   academia_editada: 'Cadastro editado', academia_excluida: 'Academia excluída', ativar: 'Ativação', suspender: 'Suspensão', reativar: 'Reativação', regularizar: 'Regularização' };
@@ -155,3 +142,13 @@ export default function AcademiaOperacional({ selecao, fechar, atualizar, sessao
     </dialog>
   );
 }
+
+AcademiaOperacional.propTypes = {
+  selecao: PropTypes.shape({
+    academia: PropTypes.shape({ id: PropTypes.number.isRequired, nome: PropTypes.string.isRequired }).isRequired,
+    acao: PropTypes.string.isRequired,
+  }).isRequired,
+  fechar: PropTypes.func.isRequired,
+  atualizar: PropTypes.func.isRequired,
+  sessaoEncerrada: PropTypes.func.isRequired,
+};

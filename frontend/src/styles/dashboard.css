@@ -12,7 +12,7 @@
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 1.25rem;
   margin-bottom: 2rem;
 }
@@ -36,7 +36,7 @@
 
 .dashboard-grid-charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -46,10 +46,10 @@
    ========================================================== */
 
 .relatorios-section {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   overflow: hidden;
   margin-bottom: 2.5rem;
 }
@@ -206,12 +206,12 @@
 /* Imprimir */
 
 .relatorios-btn-imprimir {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--bg-subtle);
+  color: var(--text-heading);
 }
 
 .relatorios-btn-imprimir:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--border);
 }
 
 /* ==========================================================
@@ -232,8 +232,8 @@
 /* Cards dos indicadores */
 
 .relatorio-kpi-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
   border-left: 4px solid #0891b2;
   border-radius: 10px;
   padding: 1rem;
@@ -243,20 +243,20 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--text-muted);
   letter-spacing: 0.04em;
 }
 
 .relatorio-kpi-valor {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-heading);
   margin-top: 0.25rem;
 }
 
 .relatorio-kpi-sub {
   font-size: 0.76rem;
-  color: #475569;
+  color: var(--text-muted);
   margin-top: 0.2rem;
 }
 
@@ -282,14 +282,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.75rem;
   margin-bottom: 1.1rem;
 }
 
 .relatorio-tab {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-subtle);
+  color: var(--text-body);
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 0.45rem 0.9rem;
@@ -302,7 +302,7 @@
 }
 
 .relatorio-tab:hover {
-  background: #e2e8f0;
+  background: var(--border);
 }
 
 .relatorio-tab.ativa {
@@ -321,7 +321,7 @@
 .relatorio-tabela-wrapper {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 10px;
 }
 
@@ -332,19 +332,19 @@
 }
 
 .relatorio-tabela th {
-  background: #f8fafc;
-  color: #334155;
+  background: var(--bg-subtle);
+  color: var(--text-body);
   font-weight: 700;
   text-align: left;
   padding: 0.7rem 0.85rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .relatorio-tabela td {
   padding: 0.65rem 0.85rem;
-  color: #1e293b;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-heading);
+  border-bottom: 1px solid var(--border);
 }
 
 .relatorio-tabela tr:last-child td {
@@ -354,7 +354,7 @@
 .relatorio-vazio {
   text-align: center;
   padding: 1.5rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.88rem;
 }
 

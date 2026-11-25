@@ -2,7 +2,8 @@ import { MENSAGEM_SENHA, senhaValida } from '../politicaSenha';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import CamposCadastroAcademia, { useConsultaCep } from '../components/CamposCadastroAcademia';
+import { useConsultaCep } from '../useConsultaCep';
+import CamposCadastroAcademia from '../components/CamposCadastroAcademia';
 import '../styles/login.css';
 
 const titulos = ['Dados da academia', 'Endereço', 'Responsável'];
@@ -55,7 +56,8 @@ export default function CadastroAdmin() {
         const { data } = await api.post('/cadastro-publico/email', { email: dados.email });
         setDesafio(data.desafio);
       } else {
-        const { confirmacao, ...cadastro } = dados;
+        const cadastro = { ...dados };
+        delete cadastro.confirmacao;
         await api.post('/cadastro-publico', { ...cadastro, desafio, codigo, ...politicas });
         setConcluido(true);
         setDados({});

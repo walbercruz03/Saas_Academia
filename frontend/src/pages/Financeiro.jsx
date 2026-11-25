@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+import { Check, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -579,7 +581,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
                             className="fin-btn-acao fin-btn-baixar"
                             onClick={() => handleBaixar(m)}
                           >
-                            Confirmar
+                            <Check size={16} aria-hidden="true" /> Confirmar
                           </button>
                         )}
                         {usuario?.cargo === 'admin' && (
@@ -588,7 +590,7 @@ export default function Financeiro({ abaInicial = 'venda' }) {
                             className="fin-btn-acao fin-btn-excluir"
                             onClick={() => handleExcluir(m.id)}
                           >
-                            Excluir
+                            <Trash2 size={16} aria-hidden="true" /> Excluir
                           </button>
                         )}
                       </div>
@@ -610,3 +612,5 @@ export default function Financeiro({ abaInicial = 'venda' }) {
     </div>
   );
 }
+
+Financeiro.propTypes = { abaInicial: PropTypes.oneOf(Object.keys(CONFIG_TIPOS)) };

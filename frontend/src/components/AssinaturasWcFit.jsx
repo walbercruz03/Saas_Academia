@@ -1,8 +1,7 @@
+import PropTypes from 'prop-types';
+import { moedaComercial } from '../moedaComercial';
 import { useEffect, useRef, useState } from 'react';
 import { solicitar } from '../apiSuperAdmin';
-
-export const moedaComercial = (valor) => valor == null ? '—' :
-  (valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const situacoes = {
   excluida: 'Encerrada por exclusão da academia',
@@ -299,3 +298,27 @@ export default function AssinaturasWcFit({ dados, versao, mudarPagina, atualizar
     </>
   );
 }
+
+CobrancasSandbox.propTypes = {
+  academiaId: PropTypes.number.isRequired,
+  sessaoEncerrada: PropTypes.func.isRequired,
+};
+
+AssinaturasWcFit.propTypes = {
+  dados: PropTypes.shape({
+    registros: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.number.isRequired, nome: PropTypes.string, situacao: PropTypes.string,
+      mensalidade_centavos: PropTypes.number, fim_teste: PropTypes.string, proximo_vencimento: PropTypes.string,
+    })).isRequired,
+    pagina: PropTypes.number.isRequired,
+    temMais: PropTypes.bool.isRequired,
+    precos: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.number, valor_centavos: PropTypes.number, vigente_desde: PropTypes.string,
+    })).isRequired,
+  }),
+  versao: PropTypes.number.isRequired,
+  mudarPagina: PropTypes.func.isRequired,
+  atualizar: PropTypes.func.isRequired,
+  sessaoEncerrada: PropTypes.func.isRequired,
+  academiaInicial: PropTypes.number,
+};

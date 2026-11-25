@@ -41,6 +41,7 @@ const PORT = process.env.PORT || 3001;
 app.use('/api/super-admin', require('./routes/superAdminRoutes'));
 app.use('/api/convites', require('./routes/conviteRoutes'));
 app.use('/api/asaas-sandbox', require('./routes/asaasSandboxRoutes'));
+app.use('/api/aluno', require('./routes/portalAlunoRoutes').router);
 app.use(cors({ origin: process.env.APP_CORS_ORIGIN || '*', exposedHeaders: ['Idempotency-Replayed'] }));
 app.get('/api/documentos-legais', (_req,res) => {
   const documentos = require('./services/documentosLegais').aprovados();
@@ -113,6 +114,9 @@ const inicializarBanco = () => db.serialize(() => {
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/planos', planoRoutes);
+const gestaoPortalAluno = require('./routes/gestaoPortalAlunoRoutes');
+app.use('/api/alunos/:id/portal', gestaoPortalAluno.alunos);
+app.use('/api/exercicios/:id/portal-imagem', gestaoPortalAluno.exercicios);
 app.use('/api/alunos', alunoRoutes);
 app.use('/api/matriculas', matriculaRoutes);
 app.use('/api/checkin', checkinRoutes);

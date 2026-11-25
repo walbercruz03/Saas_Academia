@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../api';
+import { apiPublica } from '../api';
 import '../styles/login.css';
 
 const academiaIndisponivel = 'O acesso à sua academia está indisponível. Entre em contato com a administração.';
@@ -22,10 +22,10 @@ export default function Login() {
 
   useEffect(() => {
     const consulta = new AbortController();
-    api.get('/cadastro-publico', { signal: consulta.signal })
+    apiPublica.get('/cadastro-publico', { signal: consulta.signal })
       .then(({ data }) => { if (!consulta.signal.aborted) setOfertaCadastro(data); })
       .catch(() => {});
-    api.get('/documentos-legais', { signal: consulta.signal })
+    apiPublica.get('/documentos-legais', { signal: consulta.signal })
       .then(({ data }) => { if (!consulta.signal.aborted) setDocumentos(data); }).catch(() => {});
     return () => consulta.abort();
   }, []);
