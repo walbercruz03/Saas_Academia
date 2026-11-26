@@ -1,14 +1,14 @@
 const express = require('express');
 const autenticado = require('../middlewares/authMiddleware');
 const administrador = require('../middlewares/isAdminMiddleware');
-const { consulta } = require('../models/SuperAdmin');
+const { consulta, transacao } = require('../models/SuperAdmin');
 const comercial = require('../models/ComercialWcFit');
 const autogestao = require('../services/autogestaoComercial');
 const permissoes = require('../services/permissoesProfessor');
-const { transacao } = require('../models/SuperAdmin');
 const logotipo = require('../models/LogotipoAcademia');
 const onboarding = require('../models/OnboardingAcademia');
-const { validarPerfilAcademia } = require('../services/cadastroPublico');
+const { emailValido, validarEnderecoAcademia, validarNomeFantasia, validarRazaoSocial,
+  validarTelefoneComercial } = require('../services/cadastroPublico');
 const logFalha = require('../utils/logFalha');
 
 const router = express.Router();
@@ -36,17 +36,43 @@ router.get('/onboarding', consultar(async (_req, res, academiaId) => {
 }));
 
 router.put('/dados', consultar(async (req, res, academiaId) => {
-  const dados = validarPerfilAcademia(req.body || {});
-  const endereco = `${dados.logradouro}, ${dados.numero} - ${dados.bairro}, ${dados.cidade}/${dados.uf}`;
+  const corpo = req.body || {};
+  const validar = (campo, validador) => Object.hasOwn(corpo, campo) ? validador(corpo[campo]) : null;
+  const fantasia = validar('nome_fantasia', validarNomeFantasia);
+  const razao = validar('razao_social', validarRazaoSocial);
+  const telefone = validar('whatsapp_comercial', validarTelefoneComercial);
+  const email = validar('email', emailValido);
+  const endereco = ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf']
+    .some((campo) => Object.hasOwn(corpo, campo)) ? validarEnderecoAcademia(corpo) : null;
+  if (!fantasia && !razao && !telefone && !email && !endereco) {
+    return res.status(400).json({ mensagem: 'Informe os dados comerciais a atualizar.' });
+  }
+  const enderecoCompleto = endereco
+    ? `${endereco.logradouro}, ${endereco.numero} - ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}` : null;
+
   try {
-    const { rowCount } = await consulta(`
-      UPDATE academias SET nome=$1, nome_fantasia=$1, telefone=$2, endereco=$3, cep=$4, logradouro=$5,
-        numero_endereco=$6, complemento=$7, bairro=$8, cidade=$9, uf=$10,
-        unidade_cadastro=CASE WHEN documento_cadastro IS NOT NULL THEN $11 ELSE unidade_cadastro END
-      WHERE id=$12 AND excluida_em IS NULL
-    `, [dados.fantasia, dados.comercial, endereco, dados.cep, dados.logradouro, dados.numero,
-      dados.complemento || null, dados.bairro, dados.cidade, dados.uf, dados.unidade, academiaId]);
-    return rowCount ? res.status(204).end() : res.status(404).json({ mensagem: 'Academia não encontrada.' });
+    const atualizado = await transacao(async (client) => {
+      const { rows: [academia] } = await client.query(
+        'SELECT tipo_cadastro FROM academias WHERE id=$1 AND ativo=1 AND excluida_em IS NULL FOR UPDATE', [academiaId]);
+      if (!academia) return false;
+      if (razao && academia.tipo_cadastro === 'pessoa_fisica') {
+        throw Object.assign(new Error('Razão social está disponível para cadastros de pessoa jurídica.'), { status: 400 });
+      }
+      await client.query(`
+        UPDATE academias SET nome=coalesce($1,nome), nome_fantasia=coalesce($1,nome_fantasia),
+          razao_social=coalesce($2,razao_social), telefone=coalesce($3,telefone), email=coalesce($4,email),
+          email_responsavel_verificado_em=CASE WHEN $4 IS NULL OR email=$4 THEN email_responsavel_verificado_em END,
+          endereco=coalesce($5,endereco), cep=coalesce($6,cep), logradouro=coalesce($7,logradouro),
+          numero_endereco=coalesce($8,numero_endereco), complemento=CASE WHEN $5 IS NULL THEN complemento ELSE $9 END,
+          bairro=coalesce($10,bairro), cidade=coalesce($11,cidade), uf=coalesce($12,uf),
+          unidade_cadastro=CASE WHEN documento_cadastro IS NOT NULL THEN coalesce($13,unidade_cadastro)
+            ELSE unidade_cadastro END
+        WHERE id=$14
+      `, [fantasia, razao, telefone, email, enderecoCompleto, endereco?.cep, endereco?.logradouro, endereco?.numero,
+        endereco?.complemento || null, endereco?.bairro, endereco?.cidade, endereco?.uf, endereco?.unidade, academiaId]);
+      return true;
+    });
+    return atualizado ? res.status(204).end() : res.status(404).json({ mensagem: 'Academia não encontrada.' });
   } catch (erro) {
     if (erro.code === '23505' && erro.constraint === 'academias_documento_unidade_cadastro_key') {
       return res.status(409).json({ mensagem: 'Já existe uma unidade deste documento com o endereço informado.' });

@@ -67,14 +67,12 @@ function validarDestino(email, config) {
   if (config.destinoTeste && email !== config.destinoTeste) throw erro(403,'Cadastro restrito ao destinatário de homologação.');
 }
 
-function validarPerfilAcademia(corpo) {
+function validarEnderecoAcademia(corpo) {
   const cep = texto(corpo.cep, 9, 'CEP').replace('-', '');
   const uf = texto(corpo.uf, 2, 'UF').toUpperCase();
   if (!/^\d{8}$/.test(cep) || !ufs.includes(uf)) throw erro(400, 'Confira o CEP e a UF.');
   const cadastro = {
     cep, uf,
-    fantasia: texto(corpo.nome_fantasia, 160, 'nome fantasia'),
-    comercial: telefone(corpo.whatsapp_comercial, 'WhatsApp comercial'),
     logradouro: texto(corpo.logradouro, 160, 'logradouro'),
     numero: texto(corpo.numero, 20, 'número'),
     complemento: texto(corpo.complemento, 100, 'complemento', false),
@@ -88,6 +86,18 @@ function validarPerfilAcademia(corpo) {
   return cadastro;
 }
 
+const validarNomeFantasia = (valor) => texto(valor, 160, 'nome fantasia');
+const validarRazaoSocial = (valor) => texto(valor, 160, 'razão social');
+const validarTelefoneComercial = (valor) => telefone(valor, 'WhatsApp comercial');
+
+function validarPerfilAcademia(corpo) {
+  return {
+    ...validarEnderecoAcademia(corpo),
+    fantasia: validarNomeFantasia(corpo.nome_fantasia),
+    comercial: validarTelefoneComercial(corpo.whatsapp_comercial),
+  };
+}
+
 function validarDadosAcademia(corpo) {
   const { tipo } = corpo;
   if (!tipos.includes(tipo)) throw erro(400, 'Selecione um tipo de cadastro válido.');
@@ -96,7 +106,7 @@ function validarDadosAcademia(corpo) {
   return {
     ...validarPerfilAcademia(corpo),
     tipo, documento, email: emailValido(corpo.email),
-    razao: tipo === 'pessoa_fisica' ? null : texto(corpo.razao_social, 160, 'razão social'),
+    razao: tipo === 'pessoa_fisica' ? null : validarRazaoSocial(corpo.razao_social),
     responsavel: texto(corpo.responsavel_nome, 160, 'nome do responsável'),
     whatsapp: telefone(corpo.responsavel_whatsapp, 'WhatsApp do responsável'),
   };
@@ -208,4 +218,4 @@ async function concluirCadastro(dados, desafio, codigo, config) {
   if (!resultado) throw invalido();
 }
 
-module.exports = { configuracao, emailValido, validarCadastro, validarDadosAcademia, validarPerfilAcademia, solicitarCodigo, concluirCadastro, tipos, ufs };
+module.exports = { configuracao, emailValido, validarCadastro, validarDadosAcademia, validarEnderecoAcademia, validarNomeFantasia, validarRazaoSocial, validarTelefoneComercial, solicitarCodigo, concluirCadastro, tipos, ufs };

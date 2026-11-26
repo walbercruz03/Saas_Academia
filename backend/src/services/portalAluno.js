@@ -269,7 +269,7 @@ async function fichasPrescritas(academia, aluno) {
 async function painel({ academia_id:academia, aluno_id:aluno }) {
   const { rows:[cadastro] } = await consulta(`
     SELECT al.nome, al.email, al.telefone, al.status, p.objetivo,
-      coalesce(nullif(a.nome_fantasia,''),a.nome) AS academia,
+      coalesce(nullif(btrim(a.nome_fantasia),''),'Wc Fit') AS academia,
       u.nome AS professor
     ${vinculo}
     LEFT JOIN usuarios u ON u.id=p.professor_id AND u.academia_id=p.academia_id
@@ -287,12 +287,13 @@ async function painel({ academia_id:academia, aluno_id:aluno }) {
     logotipo.disponivel(),
   ]);
 
+  const logo = logoPronto ? (await consulta(
+    'SELECT md5(conteudo) AS versao FROM academia_logotipos WHERE academia_id=$1',[academia])).rows[0] : null;
   const hoje = getDataHojeFortaleza();
   return {
     nome:cadastro.nome, email:cadastro.email, telefone:cadastro.telefone, academia:cadastro.academia,
     professor:cadastro.professor, objetivo:cadastro.objetivo,
-    logo_disponivel:logoPronto && (await consulta(
-      'SELECT 1 FROM academia_logotipos WHERE academia_id=$1',[academia])).rowCount === 1,
+    logo_disponivel:Boolean(logo), logo_versao:logo?.versao ?? null,
     matriculas: matriculas.map(({ plano_valido,...m }) => ({
       id:m.id, plano:m.plano, data_inicio:m.data_inicio, data_vencimento:m.data_vencimento,
       situacao:situacaoEfetiva({ ...m, plano_valido, aluno_status:cadastro.status },hoje),

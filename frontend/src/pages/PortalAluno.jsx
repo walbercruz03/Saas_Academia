@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Activity, ArrowLeft, Building2, ChevronRight, ClipboardList, Dumbbell, House, LogOut, Moon, Sun, Target, UserRound } from 'lucide-react';
+import { Activity, ArrowLeft, ChevronRight, ClipboardList, Dumbbell, House, LogOut, Moon, Sun, Target, UserRound } from 'lucide-react';
 import ControlesPwa, { PortalIndisponivel } from '../components/PortalPwa';
 import { useConexaoPortal } from '../useConexaoPortal';
 import EvolucaoAluno from '../components/EvolucaoAluno';
@@ -195,11 +195,19 @@ function Perfil({ dados }) {
   </>;
 }
 
+function LogoPortal({ versao }) {
+  const [falhou, setFalhou] = useState(false);
+  return versao && !falhou
+    ? <img src={`${basePortal}/logotipo?v=${versao}`} alt="" onError={() => setFalhou(true)} />
+    : <Dumbbell size={24} aria-hidden="true" />;
+}
+
+LogoPortal.propTypes = { versao: PropTypes.string };
+
 function Painel({ tela, tema, alternar, sair }) {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState('');
   const [consulta, setConsulta] = useState(0);
-  const [logoFalhou, setLogoFalhou] = useState(false);
   const navigate = useNavigate();
   const { fichaId } = useParams();
 
@@ -251,8 +259,7 @@ function Painel({ tela, tema, alternar, sair }) {
   return <div className="portal-painel">
     <header className="portal-topo">
       <div className="portal-marca">
-        {dados?.logo_disponivel && !logoFalhou ? <img src={basePortal + '/logotipo'} alt="" onError={() => setLogoFalhou(true)} />
-          : <Building2 size={24} aria-hidden="true" />}
+        <LogoPortal key={dados?.logo_versao ?? ''} versao={dados?.logo_versao} />
         <span>{dados?.academia || 'Wc Fit'}</span>
       </div>
       <div className="portal-topo-acoes">

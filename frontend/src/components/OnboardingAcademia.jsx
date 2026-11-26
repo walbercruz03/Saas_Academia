@@ -94,7 +94,7 @@ export default function OnboardingAcademia({ usuario }) {
       {dias > 0 && <span className="onboarding-teste">
         {dias === 1 ? '1 dia restante no período gratuito' : `${dias} dias restantes no período gratuito`}
       </span>}
-      {!aberto && <button type="button" className="treinamento-btn treinamento-btn--neutro"
+      {!aberto && <button type="button" className="btn-outline"
         onClick={() => atualizarPreferencia('aberto')}>
         {preferencia === 'dispensado' ? 'Retomar orientação' : 'Ver orientação'}
       </button>}

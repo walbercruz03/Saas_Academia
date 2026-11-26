@@ -1,17 +1,14 @@
 import OnboardingAcademia from '../components/OnboardingAcademia';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
+import { ChartNoAxesColumnIncreasing, ClipboardList } from 'lucide-react';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  Cell,
 } from 'recharts';
 import api from '../api';
 import '../styles/styles.css';
@@ -20,6 +17,18 @@ import '../styles/dashboard.css';
 const formatarMoeda = (valor) => {
   if (valor === null || valor === undefined || Number.isNaN(Number(valor))) return '—';
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const mesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' });
+const mesCompleto = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const apresentarMes = (mes, formato) => formato.format(new Date(mes + '-01T00:00:00Z'));
+
+const percentual = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
+const quantidadeBR = new Intl.NumberFormat('pt-BR');
+const tooltipGrafico = {
+  contentStyle: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' },
+  labelStyle: { color: 'var(--text-heading)' },
+  itemStyle: { color: 'var(--text-body)' },
 };
 
 const formatarDataBR = (valor) => {
@@ -173,18 +182,25 @@ export default function Dashboard() {
     }
   };
 
-  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const faturamento = (stats?.valor_contratado || []).map(([anoMes, valor]) => ({
-    mes: `${meses[Number(anoMes.slice(5)) - 1]}/${anoMes.slice(0, 4)}`,
-    faturamento: valor,
-  }));
-  const dadosFaturamentoMensal = faturamento.length ? faturamento : [{ mes: 'Atual', faturamento: 0 }];
+  const contratadoDisponivel = Array.isArray(stats?.valor_contratado);
+  const statusDisponivel = stats?.situacoes != null;
+  const valoresPorMes = new Map(contratadoDisponivel ? stats.valor_contratado : []);
+  const [ano, mesAtual] = hojeISO.split('-').map(Number);
+  const faturamento = Array.from({ length: 6 }, (_, indice) => {
+    const data = new Date(Date.UTC(ano, mesAtual - 6 + indice, 1));
+    const chave = data.toISOString().slice(0, 7);
+    const valor = valoresPorMes.get(chave);
+    return { chave, faturamento: valor == null ? null : Number(valor) };
+  });
+  const totalContratado = faturamento.reduce((total, item) => total + (item.faturamento ?? 0), 0);
+  const mesesComDados = faturamento.filter(({ faturamento: valor }) => valor !== null).length;
   const dadosStatus = [
     ['Ativas', 'vigente', '#22c55e'],
     ['Vencidas', 'vencida', '#ef4444'],
     ['Futuras', 'futura', '#2563eb'],
     ['Canceladas', 'cancelada', '#64748b'],
-  ].map(([status, codigo, cor]) => ({ status, quantidade: stats?.situacoes?.[codigo] ?? 0, cor }));
+  ].map(([status, codigo, fill]) => ({ status, quantidade: Number(stats?.situacoes?.[codigo]) || 0, fill }));
+  const totalMatriculas = dadosStatus.reduce((total, item) => total + item.quantidade, 0);
 
   if (carregando) {
     return (
@@ -258,72 +274,56 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Gráficos Existentes */}
       <div className="dashboard-grid-charts">
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-          }}
-        >
-          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-heading)', fontSize: '1rem' }}>
-            Valor Contratado por Mês (R$)
-          </h3>
-          <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer>
-              <AreaChart data={dadosFaturamentoMensal} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="corFaturamento" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="mes" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip formatter={(value) => [formatarMoeda(value), 'Valor contratado']} />
-                <Area
-                  type="monotone"
-                  dataKey="faturamento"
-                  stroke="#06b6d4"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#corFaturamento)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+        <section className="dashboard-chart-card" aria-labelledby="dashboard-contratado">
+          <h3 id="dashboard-contratado"><ChartNoAxesColumnIncreasing size={19} aria-hidden="true" /> Valor contratado</h3>
+          <div className="dashboard-chart-total">
+            <strong>{mesesComDados ? formatarMoeda(totalContratado) : '—'}</strong>
+            <span>Últimos 6 meses</span>
           </div>
-        </div>
-
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-          }}
-        >
-          <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-heading)', fontSize: '1rem' }}>
-            Status das Matrículas
-          </h3>
-          <div style={{ width: '100%', height: 260 }}>
+          {contratadoDisponivel && <div className="dashboard-chart-plot">
             <ResponsiveContainer>
-              <BarChart data={dadosStatus} margin={{ top: 10, right: 20, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="status" stroke="#64748b" fontSize={12} />
-                <YAxis allowDecimals={false} stroke="#64748b" fontSize={12} />
-                <Tooltip formatter={(value) => [`${value} matrícula(s)`, 'Total']} />
-                <Bar dataKey="quantidade" radius={[6, 6, 0, 0]}>
-                  {dadosStatus.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.cor} />
-                  ))}
-                </Bar>
+              <BarChart data={faturamento} margin={{ top: 6, right: 4, bottom: 0, left: 4 }}>
+                <XAxis dataKey="chave" tickFormatter={(mes) => apresentarMes(mes, mesCurto).replace('.', '')}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis hide domain={['auto', (maximo) => Math.max(1, maximo)]} />
+                <Tooltip {...tooltipGrafico} filterNull={false} cursor={{ fill: 'var(--bg-subtle)' }}
+                  labelFormatter={(mes) => apresentarMes(mes, mesCompleto)}
+                  formatter={(valor) => [valor == null ? 'Sem dados' : formatarMoeda(valor), 'Valor contratado']} />
+                <Bar dataKey="faturamento" fill="var(--accent-text)" maxBarSize={36}
+                  minPointSize={(valor) => valor === 0 ? 3 : 0} radius={[4, 4, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
+          </div>}
+          <p className="dashboard-chart-note">{!contratadoDisponivel ? 'Valores contratados indisponíveis.'
+            : !mesesComDados ? 'Nenhum mês com dados no período.'
+              : 'Espaço vazio indica mês sem dados. Traço azul indica R$ 0,00.'}</p>
+        </section>
+
+        <section className="dashboard-chart-card" aria-labelledby="dashboard-matriculas">
+          <h3 id="dashboard-matriculas"><ClipboardList size={19} aria-hidden="true" /> Status das matrículas</h3>
+          <div className="dashboard-chart-total">
+            <strong>{statusDisponivel ? quantidadeBR.format(totalMatriculas) : '—'}</strong>
+            <span>Total de matrículas</span>
           </div>
-        </div>
+          <div className="dashboard-chart-distribuicao" aria-hidden="true">
+            {dadosStatus.filter(({ quantidade }) => quantidade > 0).map(({ status, quantidade, fill }) => (
+              <span key={status} style={{ flexGrow: quantidade, backgroundColor: fill }} />
+            ))}
+          </div>
+          <ul className="dashboard-chart-legend" aria-label="Distribuição por situação">
+            {dadosStatus.map(({ status, quantidade, fill }) => <li key={status}>
+              <span className="dashboard-chart-dot" style={{ backgroundColor: fill }} aria-hidden="true" />
+              <span>{status}</span>
+              <strong>{statusDisponivel ? quantidadeBR.format(quantidade) : '—'}</strong>
+              <span className="dashboard-chart-percentage">{statusDisponivel
+                ? percentual.format(totalMatriculas ? quantidade / totalMatriculas : 0) : '—'}</span>
+            </li>)}
+          </ul>
+          {totalMatriculas === 0 && <p className="dashboard-chart-note">
+            {statusDisponivel ? 'Nenhuma matrícula registrada.' : 'Status das matrículas indisponível.'}
+          </p>}
+        </section>
       </div>
 
       {/* Seção: Relatórios Gerenciais */}

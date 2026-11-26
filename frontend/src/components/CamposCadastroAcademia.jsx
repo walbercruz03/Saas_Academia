@@ -21,7 +21,7 @@ const camposResponsavel = [
   ['email', 'E-mail', 254, 'email'],
   ['responsavel_whatsapp', 'WhatsApp', 24, 'tel'],
 ];
-export default function CamposCadastroAcademia({ dados, setDados, etapa, avisoCep, comSenha = false, somentePerfil = false }) {
+export default function CamposCadastroAcademia({ dados, setDados, etapa, avisoCep, comSenha = false, somentePerfil = false, enderecoObrigatorio = true }) {
   const prefixo = useId();
   const campo = ([nome, rotulo, maxLength, type = 'text'], requerido = true) => (
     <div className="campo" key={nome}>
@@ -48,13 +48,15 @@ export default function CamposCadastroAcademia({ dados, setDados, etapa, avisoCe
         {campo(['documento', dados.tipo === 'pessoa_fisica' ? 'CPF' : 'CNPJ', 18])}
         {dados.tipo !== 'pessoa_fisica' && campo(camposAcademia[1])}
       </>}
-      {campo(camposAcademia[2])}
+      {somentePerfil && dados.tipo !== 'pessoa_fisica' && campo(camposAcademia[1], Boolean(dados.razao_social))}
+      {campo(camposAcademia[2], !somentePerfil || Boolean(dados.whatsapp_comercial))}
+      {somentePerfil && campo(['email', 'E-mail de contato', 254, 'email'], Boolean(dados.email))}
     </>}
     {(etapa === undefined || etapa === 1) && <>
-      {camposEndereco.map((item) => campo(item, item[0] !== 'complemento'))}
+      {camposEndereco.map((item) => campo(item, enderecoObrigatorio && item[0] !== 'complemento'))}
       <div className="campo">
         <label htmlFor={prefixo + 'uf'}>UF</label>
-        <select id={prefixo + 'uf'} required value={dados.uf || ''} onChange={(e) => setDados((atual) => ({ ...atual, uf: e.target.value }))}>
+        <select id={prefixo + 'uf'} required={enderecoObrigatorio} value={dados.uf || ''} onChange={(e) => setDados((atual) => ({ ...atual, uf: e.target.value }))}>
           <option value="">Selecione</option>
           {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
         </select>
@@ -76,4 +78,5 @@ CamposCadastroAcademia.propTypes = {
   avisoCep: PropTypes.string,
   comSenha: PropTypes.bool,
   somentePerfil: PropTypes.bool,
+  enderecoObrigatorio: PropTypes.bool,
 };

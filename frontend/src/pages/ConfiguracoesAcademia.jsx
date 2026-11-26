@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import LogotipoAcademia from '../components/LogotipoAcademia';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole, ArrowRight, ChevronLeft, ChevronRight, FileText, LogOut, Save, X } from 'lucide-react';
+import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole, ArrowRight, ChevronLeft, ChevronRight, FileText, LogOut, Pencil, Save, X } from 'lucide-react';
 import '../styles/configuracoes.css';
 import api from '../api';
 import { useConsultaCep } from '../useConsultaCep';
@@ -57,12 +57,19 @@ function Descricao({ itens }) {
   </div>)}</dl>;
 }
 
+const camposEndereco = ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf'];
+const camposComerciais = ['nome_fantasia', 'razao_social', 'whatsapp_comercial', 'email'];
+
 function camposPerfil(academia) {
   return {
-    nome_fantasia: academia.nome_fantasia || academia.nome,
-    whatsapp_comercial: academia.telefone, numero: academia.numero_endereco,
-    cep: academia.cep, logradouro: academia.logradouro, complemento: academia.complemento,
-    bairro: academia.bairro, cidade: academia.cidade, uf: academia.uf,
+    nome_fantasia: academia.nome_fantasia || '',
+    tipo: academia.tipo_cadastro || '',
+    razao_social: academia.razao_social || '',
+    email: academia.email || '',
+    whatsapp_comercial: academia.telefone || '',
+    ...Object.fromEntries(camposEndereco.map((campo) => [
+      campo, academia[campo === 'numero' ? 'numero_endereco' : campo] || '',
+    ])),
   };
 }
 
@@ -71,13 +78,18 @@ function PerfilAcademia({ academia, atualizar }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState('');
   const [dados, setDados] = useState(() => camposPerfil(academia));
+  const inicial = camposPerfil(academia);
+  const alterado = (campo) => dados[campo] !== inicial[campo];
+  const enderecoAlterado = camposEndereco.some(alterado);
+  const comerciaisAlterados = camposComerciais.filter(alterado);
   const avisoCep = useConsultaCep(dados, setDados, academia.cep?.replace(/\D/g, '') || '');
   async function salvar(evento) {
     evento.preventDefault();
     setOcupado(true);
     setErro('');
     try {
-      await api.put('/configuracoes/dados', dados);
+      const campos = enderecoAlterado ? [...comerciaisAlterados, ...camposEndereco] : comerciaisAlterados;
+      await api.put('/configuracoes/dados', Object.fromEntries(campos.map((campo) => [campo, dados[campo]])));
       atualizar();
     } catch (falha) {
       setErro(falha.response?.data?.mensagem || 'Não foi possível salvar os dados da academia.');
@@ -92,21 +104,24 @@ function PerfilAcademia({ academia, atualizar }) {
       ['Endereço', [academia.logradouro, academia.numero_endereco, academia.complemento, academia.bairro,
         academia.cidade, academia.uf, academia.cep].filter(Boolean).join(', ') || academia.endereco],
     ]} />
-    {editando ? <form onSubmit={salvar}>
-      <fieldset className="form-grid" disabled={ocupado}>
-        <legend>Editar nome, telefone e endereço comercial</legend>
-        <CamposCadastroAcademia dados={dados} setDados={setDados} avisoCep={avisoCep} somentePerfil />
+    {editando ? <form onSubmit={salvar} className="config-perfil-form" noValidate>
+      <fieldset disabled={ocupado}>
+        <legend>Dados comerciais</legend>
+        <div className="form-grid">
+          <CamposCadastroAcademia dados={dados} setDados={setDados} avisoCep={avisoCep} somentePerfil
+            enderecoObrigatorio={enderecoAlterado} />
+        </div>
       </fieldset>
       {erro && <p className="msg-erro" role="alert">{erro}</p>}
       <div className="btn-grupo">
         <button type="button" className="treinamento-btn treinamento-btn--neutro" disabled={ocupado}
-          onClick={() => { setEditando(false); setErro(''); setDados(camposPerfil(academia)); }}>Cancelar</button>
-        <button className="treinamento-btn treinamento-btn--primario" disabled={ocupado}>
+          onClick={() => { setEditando(false); setErro(''); setDados(camposPerfil(academia)); }}><X size={16} aria-hidden="true" /> Cancelar</button>
+        <button className="treinamento-btn treinamento-btn--primario" disabled={ocupado || (!enderecoAlterado && !comerciaisAlterados.length)}>
           <Save size={16} aria-hidden="true" /> {ocupado ? 'Salvando…' : 'Salvar dados'}
         </button>
       </div>
     </form> : <button type="button" className="treinamento-btn treinamento-btn--neutro"
-      onClick={() => setEditando(true)}>Editar dados comerciais</button>}
+      onClick={() => setEditando(true)}><Pencil size={16} aria-hidden="true" /> Editar dados comerciais</button>}
     <LogotipoAcademia disponivel={academia.logotipo_disponivel} />
   </>;
 }

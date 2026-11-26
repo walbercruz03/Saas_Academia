@@ -32,6 +32,7 @@ services:
       PORT: 3001
       TZ: America/Fortaleza
       DATABASE_URL: postgresql://${POSTGRES_USER:-wcfit_admin}:${POSTGRES_PASSWORD:-wcfit_senha_forte_2026}@db:5432/${POSTGRES_DB:-wcfit}
+      CHECKIN_FACIAL_CHAVE: ${CHECKIN_FACIAL_CHAVE:-}
       JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET de produção}
       SUPER_ADMIN_TOTP_KEY: ${SUPER_ADMIN_TOTP_KEY:-}
       IDEMPOTENCIA_HMAC_VERSAO: ${IDEMPOTENCIA_HMAC_VERSAO:-}
