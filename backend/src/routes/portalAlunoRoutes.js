@@ -69,11 +69,24 @@ router.post('/execucoes/iniciar',respostaPortal(autorizar),execucao((req,aluno) 
 router.post('/execucoes/:id',respostaPortal(autorizar),execucao((req,aluno) =>
   execucoes.atualizar(aluno,token(req),req.params.id,req.body || {})));
 
-router.get('/logotipo',respostaPortal(autorizar),respostaPortal(async (req,res) => {
+async function enviarLogotipo(res, academiaId) {
   if (!await logotipo.disponivel()) return res.status(404).end();
-  const imagem = await logotipo.buscar(req.alunoPortal.academia_id);
+  const imagem = await logotipo.buscar(academiaId);
   if (!imagem) return res.status(404).end();
   return res.set('X-Content-Type-Options','nosniff').type(imagem.mime).send(Buffer.from(imagem.conteudo));
+}
+
+router.get('/academias/:id/marca',respostaPortal(async (req,res) => {
+  const { nome } = await portal.marcaPublica(req.params.id);
+  return res.json({ nome });
 }));
+
+router.get('/academias/:id/logotipo',respostaPortal(async (req,res) => {
+  await portal.marcaPublica(req.params.id);
+  return enviarLogotipo(res,req.params.id);
+}));
+
+router.get('/logotipo',respostaPortal(autorizar),respostaPortal((req,res) =>
+  enviarLogotipo(res,req.alunoPortal.academia_id)));
 
 module.exports = { router, respostaPortal };

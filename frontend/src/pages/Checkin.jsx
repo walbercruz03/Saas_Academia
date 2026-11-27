@@ -3,6 +3,7 @@ import { podeAcessar } from '../permissoesProfessor';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { formatarCpf } from '../utils/cpf';
 import useOperacaoPendente from '../useOperacaoPendente';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/styles.css';
@@ -16,13 +17,6 @@ const normalizarTexto = (texto = '') =>
     .trim();
 
 const apenasDigitos = (valor = '') => String(valor).replace(/\D/g, '');
-
-const formatarCPF = (value) =>
-  apenasDigitos(value)
-    .slice(0, 11)
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
 export default function Checkin() {
   const [termoBusca, setTermoBusca] = useState('');
@@ -103,7 +97,7 @@ export default function Checkin() {
 
   const carregarAlunos = async () => {
     try {
-      const res = await api.get('/alunos', { params: { resumo: '1' } });
+      const res = await api.get('/alunos', { params: { resumo: 'checkin' } });
       setAlunosCadastrados(Array.isArray(res.data) ? res.data : []);
     } catch {
       setAlunosCadastrados([]);
@@ -129,7 +123,7 @@ export default function Checkin() {
   }, [termoBusca, alunosCadastrados]);
 
   const consultarAlunoPorCpf = async (cpfLimpo) => {
-    const res = await api.get('/checkin/buscar-aluno', { params: { cpf: cpfLimpo } });
+    const res = await api.post('/checkin/buscar-aluno', { cpf: cpfLimpo });
     return res.data;
   };
 
@@ -143,31 +137,17 @@ export default function Checkin() {
     const pareceCpf = /^[0-9.\-\s]+$/.test(semEspacos) && apenasNums.length > 0;
 
     if (pareceCpf) {
-      setTermoBusca(formatarCPF(apenasNums));
+      setTermoBusca(formatarCpf(apenasNums));
     } else {
       setTermoBusca(semEspacos);
     }
   };
 
-  const selecionarAlunoDaLista = async (itemAluno) => {
+  const selecionarAlunoDaLista = (itemAluno) => {
     setErro('');
     setSucesso('');
-    setBuscando(true);
-    try {
-      const cpfLimpo = apenasDigitos(itemAluno.cpf || '');
-      if (cpfLimpo) {
-        const dadosCompletos = await consultarAlunoPorCpf(cpfLimpo);
-        setAluno(dadosCompletos);
-      } else {
-        setAluno(itemAluno);
-      }
-      setTermoBusca(itemAluno.nome || formatarCPF(itemAluno.cpf || ''));
-    } catch (err) {
-      setAluno(itemAluno);
-      setErro(err.response?.data?.mensagem || 'Não foi possível validar o check-in desse aluno.');
-    } finally {
-      setBuscando(false);
-    }
+    setAluno(itemAluno);
+    setTermoBusca(itemAluno.nome);
   };
 
   const buscarAluno = async (e) => {
@@ -186,16 +166,15 @@ export default function Checkin() {
     setBuscando(true);
 
     try {
-      if (cpfLimpo.length >= 11) {
-        const dados = await consultarAlunoPorCpf(cpfLimpo.slice(0, 11));
-        setAluno(dados);
-      } else if (alunosSugeridos.length === 1) {
-        await selecionarAlunoDaLista(alunosSugeridos[0]);
-      } else if (alunosSugeridos.length > 1) {
-        setErro('Selecione o aluno na lista abaixo para confirmar.');
-      } else if (cpfLimpo.length > 0) {
+      if (/^[0-9.\-\s]+$/.test(texto) && cpfLimpo.length === 11) {
         const dados = await consultarAlunoPorCpf(cpfLimpo);
         setAluno(dados);
+      } else if (alunosSugeridos.length === 1) {
+        selecionarAlunoDaLista(alunosSugeridos[0]);
+      } else if (alunosSugeridos.length > 1) {
+        setErro('Selecione o aluno na lista abaixo para confirmar.');
+      } else if (/^[0-9.\-\s]+$/.test(texto)) {
+        setErro('Informe o CPF completo.');
       } else {
         setErro('Aluno não encontrado pelo nome informado.');
       }
@@ -295,7 +274,7 @@ export default function Checkin() {
                   >
                     <span className="checkin-sugestao-nome">{item.nome}</span>
                     <span className="checkin-sugestao-cpf">
-                      {item.cpf ? formatarCPF(item.cpf) : 'Sem CPF'}
+                      {item.cpf || 'Sem CPF'}
                     </span>
                   </button>
                 ))}
@@ -341,7 +320,7 @@ export default function Checkin() {
               </div>
               <div className="campo">
                 <label>CPF</label>
-                <p style={{ margin: 0, color: 'var(--text-body)' }}>{aluno.cpf}</p>
+                <p style={{ margin: 0, color: 'var(--text-body)' }}>{aluno.cpf || 'Não informado'}</p>
               </div>
               <div className="campo">
                 <label>Status</label>

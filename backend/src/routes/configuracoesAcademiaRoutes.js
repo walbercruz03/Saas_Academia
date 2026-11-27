@@ -120,7 +120,10 @@ router.get('/dados', consultar(async (_req, res, academiaId) => {
   `, [academiaId]);
   if (!dados) return res.status(404).json({ mensagem: 'Academia não encontrada.' });
   const logotipoDisponivel = await logotipo.disponivel();
-  return res.json({ ...dados, logotipo_disponivel: logotipoDisponivel });
+  return res.json({
+    ...dados, logotipo_disponivel: logotipoDisponivel,
+    portal_aluno_caminho: `/aluno/login?academia=${academiaId}`,
+  });
 }));
 
 router.get('/assinatura', consultar(async (req, res, academiaId) => {

@@ -1,3 +1,4 @@
+const { timingSafeEqual } = require('node:crypto');
 const modelo = require('../models/SuperAdmin');
 const comercial = require('../models/ComercialWcFit');
 const asaasConciliacao = require('../services/asaasConciliacao');
@@ -12,9 +13,22 @@ const opcoesCookie = {
 };
 const negar = (res) => res.status(401).json({ mensagem: 'Autenticação administrativa inválida ou expirada.' });
 
-const permiteSemTotpLocal = (req) => process.env.SUPER_ADMIN_SEM_TOTP_LOCAL === 'true' &&
-  process.env.SUPER_ADMIN_ORIGEM_LOCAL === 'http://localhost' && !process.env.APP_CORS_ORIGIN &&
-  req.get('Host') === 'localhost' && [undefined, 'http://localhost'].includes(req.get('Origin'));
+function permiteSemTotpLocal(req) {
+  if (process.env.SUPER_ADMIN_SEM_TOTP_LOCAL !== 'true') return false;
+
+  const origem = process.env.SUPER_ADMIN_ORIGEM_LOCAL;
+  if (origem === 'http://localhost') {
+    return !process.env.APP_CORS_ORIGIN && req.get('Host') === 'localhost' &&
+      [undefined, origem].includes(req.get('Origin'));
+  }
+
+  if (origem !== 'https://localhost:8081' || req.get('Host') !== 'localhost:8081' ||
+      ![undefined, origem].includes(req.get('Origin'))) return false;
+
+  const esperado = Buffer.from(process.env.SUPER_ADMIN_PROXY_LOCAL_TOKEN || '');
+  const recebido = Buffer.from(req.get('X-Wcfit-Admin-Local') || '');
+  return esperado.length > 0 && recebido.length === esperado.length && timingSafeEqual(recebido, esperado);
+}
 
 function tokenDaRequisicao(req) {
   const valor = req.headers.cookie?.split(';').map((item) => item.trim())

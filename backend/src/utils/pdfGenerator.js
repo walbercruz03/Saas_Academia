@@ -59,13 +59,6 @@ const formatarHoraBR = (valor) => {
   }).format(d);
 };
 
-const mascararCPF = (cpf) => {
-  if (!cpf) return 'Não informado';
-  const digitos = String(cpf).replace(/\D/g, '');
-  if (digitos.length < 11) return 'Não informado';
-  return `***.***.${digitos.slice(6, 9)}-${digitos.slice(9, 11)}`;
-};
-
 const gerarPDF = (data, res) => {
   try {
     const tipo = data.tipo || 'geral';
@@ -217,7 +210,7 @@ const gerarPDF = (data, res) => {
           if (idx % 2 === 1) doc.rect(40, y - 2, larguraUtil, 20).fill(corFundo);
           doc.fillColor(corTexto).fontSize(8).font('Helvetica');
           doc.text(a.nome || '—', 46, y + 4, { width: 155, ellipsis: true });
-          doc.text(mascararCPF(a.cpf), 205, y + 4, { width: 95 });
+          doc.text(a.cpf || 'Não informado', 205, y + 4, { width: 95 });
           doc.text(a.telefone || '—', 304, y + 4, { width: 100, ellipsis: true });
           doc.text(formatarDataBR(a.criado_em), 408, y + 4, { width: 68 });
           doc.text(a.status || '—', 480, y + 4, { width: 72 });

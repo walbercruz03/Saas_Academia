@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { mascararCpf } = require('../utils/documentosBrasileiros');
 
 const { TIMEZONE, formatarYMD, getDataHojeFortaleza, validarDataYMD } = require('../utils/datasFortaleza');
 const { dataContratual, situacaoEfetiva } = require('./vigenciaMatricula');
@@ -598,7 +599,7 @@ const obterDadosRelatorio = async ({
       novosNoPeriodo: alunosPeriodoLista.length,
       ativos: numero(resumoAlunosRow?.ativos),
       inativos: numero(resumoAlunosRow?.inativos),
-      lista: alunosPeriodoLista,
+      lista: alunosPeriodoLista.map((aluno) => ({ ...aluno, cpf: mascararCpf(aluno.cpf) })),
     },
 
     resumoMatriculas: {

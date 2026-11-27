@@ -24,4 +24,15 @@ function normalizarDocumento(valor, tipo) {
   return documento.endsWith(primeiro + digito(base + primeiro)) ? documento : null;
 }
 
-module.exports = { normalizarDocumento };
+function extrairCpfCompleto(valor) {
+  if (typeof valor !== 'string' || !cpfFormato.test(valor.trim())) return null;
+  return valor.replace(/\D/g, '');
+}
+
+function mascararCpf(cpf) {
+  if (!cpf) return null;
+  const digitos = cpf.replace(/\D/g, '');
+  return digitos.length > 4 ? `•••• ${digitos.slice(-4)}` : '••••';
+}
+
+module.exports = { normalizarDocumento, extrairCpfCompleto, mascararCpf };

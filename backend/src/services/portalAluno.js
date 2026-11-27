@@ -16,6 +16,7 @@ const codigoInvalido = () => erro(400, 'Código inválido ou expirado. Solicite 
 const hash = (valor) => createHash('sha256').update(valor).digest('hex');
 const segredo = () => randomBytes(32).toString('base64url');
 const chaveValida = (valor) => typeof valor === 'string' && /^[\w-]{43}$/.test(valor);
+const academiaValida = (id) => Number.isInteger(id) && id > 0 && id <= 2147483647;
 const cpfNormalizado = (valor) => normalizarDocumento(valor, 'pessoa_fisica');
 const validadeSessao = 8 * 60 * 60;
 const expiraCodigoMinutos = 30;
@@ -54,7 +55,7 @@ async function entrar(corpo, ip) {
   const cpf = cpfNormalizado(corpo.cpf);
   await limitarTentativas(cpf, ip);
   if (!cpf || typeof corpo.senha !== 'string' || !corpo.senha.length || Buffer.byteLength(corpo.senha) > 72 ||
-      (corpo.academia_id != null && (!Number.isInteger(corpo.academia_id) || corpo.academia_id < 1 || corpo.academia_id > 2147483647))) {
+      (corpo.academia_id != null && !academiaValida(corpo.academia_id))) {
     throw credenciaisInvalidas();
   }
   const { rows } = await consulta(`
@@ -89,7 +90,8 @@ async function entrar(corpo, ip) {
 async function ativar(corpo, ip) {
   const cpf = cpfNormalizado(corpo.cpf);
   await limitarTentativas(cpf, ip);
-  if (!cpf || !chaveValida(corpo.codigo)) throw codigoInvalido();
+  if (!cpf || !chaveValida(corpo.codigo) ||
+      (corpo.academia_id != null && !academiaValida(corpo.academia_id))) throw codigoInvalido();
   if (typeof corpo.senha !== 'string' || !senhaValida(corpo.senha) || Buffer.byteLength(corpo.senha) > 72) {
     throw erro(400,'Crie uma senha segura com pelo menos 8 caracteres e até 72 bytes.');
   }
@@ -97,8 +99,9 @@ async function ativar(corpo, ip) {
     const { rows:[aluno] } = await client.query(`
       SELECT p.academia_id,p.aluno_id ${vinculo}
       WHERE NOT p.bloqueado AND p.codigo_hash=$1 AND p.codigo_expira_em>now()
-        AND regexp_replace(al.cpf, '[^0-9]', '', 'g')=$2 FOR UPDATE OF p
-    `, [hash(corpo.codigo),cpf]);
+        AND regexp_replace(al.cpf, '[^0-9]', '', 'g')=$2
+        AND ($3::integer IS NULL OR p.academia_id=$3) FOR UPDATE OF p
+    `, [hash(corpo.codigo),cpf,corpo.academia_id ?? null]);
     if (!aluno) throw codigoInvalido();
     await client.query(`
       UPDATE aluno_portal_acessos SET senha_hash=$3,codigo_hash=NULL,codigo_expira_em=NULL
@@ -266,6 +269,18 @@ async function fichasPrescritas(academia, aluno) {
   }));
 }
 
+async function marcaPublica(id) {
+  if (!/^[1-9]\d{0,9}$/.test(id) || !academiaValida(Number(id))) {
+    throw erro(404,'Link do Portal do Aluno indisponível.');
+  }
+  const { rows:[marca] } = await consulta(`
+    SELECT coalesce(nullif(btrim(nome_fantasia),''),nullif(btrim(nome),''),'Wc Fit') AS nome
+    FROM academias WHERE id=$1 AND ativo=1 AND excluida_em IS NULL
+  `,[id]);
+  if (!marca) throw erro(404,'Link do Portal do Aluno indisponível.');
+  return marca;
+}
+
 async function painel({ academia_id:academia, aluno_id:aluno }) {
   const { rows:[cadastro] } = await consulta(`
     SELECT al.nome, al.email, al.telefone, al.status, p.objetivo,
@@ -302,5 +317,5 @@ async function painel({ academia_id:academia, aluno_id:aluno }) {
   };
 }
 
-module.exports = { pronto, entrar, ativar, sessao, sair, alterarAcesso, estado, orientacao,
+module.exports = { pronto, marcaPublica, entrar, ativar, sessao, sair, alterarAcesso, estado, orientacao,
   autorizarImagem, estadoImagem, painel, validadeSessao, fichasPrescritas, bibliotecaDasFichas, imagemHttps };

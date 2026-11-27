@@ -1,6 +1,7 @@
 const { promisify } = require('node:util');
 const Aluno = require('../models/Aluno');
 const AlunoModeloTreino = require('../models/AlunoModeloTreino');
+const { normalizarDocumento, extrairCpfCompleto, mascararCpf } = require('../utils/documentosBrasileiros');
 const logFalha = require('../utils/logFalha');
 
 const validarModelos = promisify(AlunoModeloTreino.validarModelos);
@@ -12,30 +13,53 @@ function ocultarSaude(req, aluno) {
   return dados;
 }
 
+const cpfValido = (valor) => normalizarDocumento(valor, 'pessoa_fisica');
+const erroCpf = (res) => res.status(400).json({ mensagem: 'Informe um CPF válido, com 11 dígitos e dígitos verificadores corretos.' });
+
+function cpfDuplicado(erro) {
+  return (erro.code === '23505' && ['alunos_academia_cpf_portal_idx','alunos_academia_id_cpf_key','alunos_cpf_key'].includes(erro.constraint)) ||
+    (erro.code === 'SQLITE_CONSTRAINT' && /(?:UNIQUE constraint failed: alunos\.(?:academia_id, alunos\.)?cpf|CPF duplicado na academia)$/.test(erro.message));
+}
+
+function apresentarCpf({ cpf, ...aluno }) {
+  return { ...aluno, cpf: mascararCpf(cpf), cpf_invalido: Boolean(cpf && !cpfValido(cpf.replace(/\D/g, ''))) };
+}
+
 const alunoController = {
   listar(req, res) {
     const { academia_id } = req.usuario;
 
-    Aluno.listar({ academia_id, resumo: req.query.resumo === '1' }, (err, alunos) => {
+    const incluirTelefone = req.query.resumo === 'checkin';
+    Aluno.listar({ academia_id, resumo: req.query.resumo === '1' || incluirTelefone, incluirTelefone }, (err, alunos) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao listar alunos.' });
-      res.json(alunos.map((aluno) => ocultarSaude(req,aluno)));
+      res.set('Cache-Control', 'no-store').json(alunos.map((aluno) => apresentarCpf(ocultarSaude(req,aluno))));
+    });
+  },
+
+  buscarCpf(req, res) {
+    const cpf = extrairCpfCompleto(req.body?.cpf);
+    if (!cpf) return res.status(400).json({ mensagem: 'Informe o CPF completo.' });
+    Aluno.buscarPorCpf(cpf, req.usuario.academia_id, (err, aluno) => {
+      if (err) return res.status(500).json({ mensagem: 'Erro ao buscar aluno.' });
+      return res.set('Cache-Control', 'no-store').json({ id: aluno?.id ?? null });
     });
   },
 
   findById(req, res) {
+    res.set('Cache-Control', 'no-store');
     Aluno.findById(req.params.id, req.usuario.academia_id, (err, aluno) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao buscar aluno.' });
       if (!aluno) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
 
       if (req.usuario.cargo === 'professor' && !acesso(req.permissoesProfessor,'modelos','visualizar')) {
-        return res.json({ ...ocultarSaude(req,aluno), modelos:[] });
+        return res.json({ ...apresentarCpf(ocultarSaude(req,aluno)), modelos:[] });
       }
       AlunoModeloTreino.listarPorAluno(req.params.id, req.usuario.academia_id, (modErr, modelos) => {
         if (modErr) {
           logFalha('Erro ao buscar modelos do aluno', modErr);
-          return res.json({ ...ocultarSaude(req,aluno), modelos: [] });
+          return res.json({ ...apresentarCpf(ocultarSaude(req,aluno)), modelos: [] });
         }
-        res.json({ ...ocultarSaude(req,aluno), modelos: modelos || [] });
+        res.json({ ...apresentarCpf(ocultarSaude(req,aluno)), modelos: modelos || [] });
       });
     });
   },
@@ -58,6 +82,9 @@ const alunoController = {
       return res.status(400).json({ mensagem: 'Nome do aluno é obrigatório.' });
     }
 
+    const cpfNormalizado = cpfValido(cpf);
+    if (cpf != null && cpf !== '' && !cpfNormalizado) return erroCpf(res);
+
     try {
       await validarModelos(modelos_ids ?? [], req.usuario.academia_id);
     } catch (erro) {
@@ -67,8 +94,9 @@ const alunoController = {
     }
 
     Aluno.create(
-      { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id: req.usuario.academia_id },
+      { nome, cpf: cpfNormalizado, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status, academia_id: req.usuario.academia_id },
       (err, result) => {
+        if (err && cpfDuplicado(err)) return res.status(409).json({ mensagem: 'Este CPF já está cadastrado nesta academia.' });
         if (err) return res.status(500).json({ mensagem: 'Erro ao criar aluno.' });
         const novoAlunoId = result.lastID;
 
@@ -84,7 +112,7 @@ const alunoController = {
               aluno: {
                 id: novoAlunoId,
                 nome,
-                cpf,
+                cpf: mascararCpf(cpfNormalizado),
                 telefone,
                 email,
                 data_nascimento,
@@ -96,7 +124,7 @@ const alunoController = {
         } else {
           return res.status(201).json({
             mensagem: 'Aluno cadastrado com sucesso.',
-            aluno: { id: novoAlunoId, nome, cpf, telefone, email, data_nascimento, status, modelos: [] },
+            aluno: { id: novoAlunoId, nome, cpf: mascararCpf(cpfNormalizado), telefone, email, data_nascimento, status, modelos: [] },
           });
         }
       }
@@ -117,6 +145,9 @@ const alunoController = {
       modelos_ids,
     } = req.body;
 
+    const cpfNormalizado = cpfValido(cpf);
+    if (cpf != null && cpf !== '' && !cpfNormalizado) return erroCpf(res);
+
     try {
       await validarModelos(modelos_ids ?? [], req.usuario.academia_id);
     } catch (erro) {
@@ -127,11 +158,10 @@ const alunoController = {
 
     Aluno.atualizar(
       req.params.id,
-      { nome, cpf, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status,
-        preservarAnamnese: !Object.hasOwn(req.body,'anamnese'),
-        preservarContato: !Object.hasOwn(req.body,'contato_emergencia') },
+      { nome, cpf: cpfNormalizado ?? undefined, telefone, email, data_nascimento, foto, contato_emergencia, anamnese, status },
       req.usuario.academia_id,
       function (err) {
+        if (err && cpfDuplicado(err)) return res.status(409).json({ mensagem: 'Este CPF já está cadastrado nesta academia.' });
         if (err) return res.status(500).json({ mensagem: 'Erro ao atualizar aluno.' });
 
         if (!this.changes) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });

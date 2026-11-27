@@ -9,6 +9,7 @@ router.get('/', authMiddleware, checkinController.listar);
 
 // Buscar aluno por CPF para check-in (auth)
 router.get('/buscar-aluno', authMiddleware, checkinController.buscarAluno);
+router.post('/buscar-aluno', authMiddleware, checkinController.buscarAluno);
 router.get('/politica-inadimplencia', authMiddleware, isAdminMiddleware, checkinController.buscarPolitica);
 router.put('/politica-inadimplencia', authMiddleware, isAdminMiddleware, checkinController.salvarPolitica);
 

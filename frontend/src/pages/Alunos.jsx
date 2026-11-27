@@ -5,6 +5,7 @@ import { podeAcessar } from '../permissoesProfessor';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import { formatarCpf, validarCpf } from '../utils/cpf';
 import '../styles/styles.css';
 import '../styles/aluno.css';
 import '../styles/treinamento.css';
@@ -38,6 +39,7 @@ export default function Alunos() {
   const [alunos, setAlunos] = useState([]);
   const [aluno, setAluno] = useState(alunoInicial);
   const [editingId, setEditingId] = useState(null);
+  const [cpfAtual, setCpfAtual] = useState(null);
   const acaoAluno = editingId ? 'editar' : 'criar';
   const editarSaude = podeAcessar(usuario,'saude','visualizar') && podeAcessar(usuario,'saude',acaoAluno);
   const editarModelos = podeAcessar(usuario,'modelos','visualizar') && podeAcessar(usuario,'modelos',acaoAluno);
@@ -49,6 +51,9 @@ export default function Alunos() {
   const [formAberto, setFormAberto] = useState(false);
 
   const [buscaAluno, setBuscaAluno] = useState('');
+  const [resultadoCpf, setResultadoCpf] = useState(null);
+  const digitosBusca = somenteNumeros(buscaAluno);
+  const cpfBusca = /^[0-9.\-\s]+$/.test(buscaAluno) && digitosBusca.length === 11 ? digitosBusca : '';
   const [filtroStatusAluno, setFiltroStatusAluno] = useState('todos');
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
@@ -58,6 +63,9 @@ export default function Alunos() {
   const [modalidades, setModalidades] = useState([]);
   const [niveis, setNiveis] = useState([]);
   const [selectedModelosIds, setSelectedModelosIds] = useState([]);
+  const [modelosOriginais, setModelosOriginais] = useState(null);
+  const [erroModelos, setErroModelos] = useState('');
+  const podeSelecionarModelos = editarModelos && (!editingId || modelosOriginais !== null);
 
   const [filtroModalidade, setFiltroModalidade] = useState('');
   const [filtroNivel, setFiltroNivel] = useState('');
@@ -67,6 +75,46 @@ export default function Alunos() {
     carregarAlunos();
     carregarAuxiliares();
   }, []);
+
+  useEffect(() => {
+    if (!cpfBusca) return;
+    const controle = new AbortController();
+    const espera = setTimeout(() => {
+      api.post('/alunos/buscar-cpf', { cpf: cpfBusca }, { signal: controle.signal })
+        .then(({ data }) => {
+          if (!controle.signal.aborted) setResultadoCpf({ cpf: cpfBusca, id: data.id });
+        })
+        .catch((falha) => {
+          if (!controle.signal.aborted) setResultadoCpf({
+            cpf: cpfBusca,
+            erro: falha.response?.data?.mensagem || 'Não foi possível buscar o CPF.',
+          });
+        });
+    }, 250);
+    return () => {
+      clearTimeout(espera);
+      controle.abort();
+    };
+  }, [cpfBusca, alunos]);
+
+  useEffect(() => {
+    if (!editingId || !editarModelos) return;
+    const controle = new AbortController();
+    api.get(`/alunos/${editingId}/modelos-treino`, { signal: controle.signal })
+      .then(({ data }) => {
+        if (controle.signal.aborted) return;
+        const modelos = Array.isArray(data) ? data : data?.modelos || [];
+        const ids = modelos.map((modelo) => modelo.id);
+        setModelosOriginais(ids);
+        setSelectedModelosIds(ids);
+      })
+      .catch(() => {
+        if (!controle.signal.aborted) setErroModelos('Não foi possível carregar os vínculos de treino.');
+      });
+    return () => controle.abort();
+  }, [editingId, editarModelos]);
+
+  const buscandoCpf = Boolean(cpfBusca && resultadoCpf?.cpf !== cpfBusca);
 
   const carregarAlunos = async () => {
     setCarregandoLista(true);
@@ -127,6 +175,9 @@ export default function Alunos() {
 
   const resetForm = () => {
     setEditingId(null);
+    setCpfAtual(null);
+    setModelosOriginais(null);
+    setErroModelos('');
     setSelectedModelosIds([]);
     setAluno({ ...alunoInicial });
     setFiltroModalidade('');
@@ -158,7 +209,7 @@ export default function Alunos() {
 
     setAluno((anterior) => ({
       ...anterior,
-      [name]: value,
+      [name]: name === 'cpf' ? formatarCpf(value) : value,
     }));
   };
 
@@ -184,16 +235,25 @@ export default function Alunos() {
       return;
     }
 
+    if (aluno.cpf && !validarCpf(aluno.cpf)) {
+      setErro('Informe um CPF válido, com 11 dígitos e dígitos verificadores corretos.');
+      return;
+    }
+
     setErro('');
     setSucesso('');
     setCarregando(true);
 
+    const incluirModelos = podeSelecionarModelos && (!editingId ||
+      modelosOriginais.length !== selectedModelosIds.length ||
+      selectedModelosIds.some((id) => !modelosOriginais.includes(id)));
     const payload = {
       ...aluno,
       nome: aluno.nome.trim(),
-      ...(editarModelos && { modelos_ids: selectedModelosIds }),
+      ...(incluirModelos && { modelos_ids: selectedModelosIds }),
     };
 
+    if (!aluno.cpf) delete payload.cpf;
     if (!editarSaude) {
       delete payload.anamnese;
       delete payload.contato_emergencia;
@@ -224,13 +284,13 @@ export default function Alunos() {
     }
   };
 
-  const editar = async (a) => {
+  const editar = (a) => {
     setErro('');
     setSucesso('');
 
     setAluno({
       nome: a.nome || '',
-      cpf: a.cpf || '',
+      cpf: '',
       telefone: a.telefone || '',
       email: a.email || '',
       data_nascimento: a.data_nascimento
@@ -242,24 +302,13 @@ export default function Alunos() {
     });
 
     setEditingId(a.id);
-    setSelectedModelosIds([]);
-    setFormAberto(true);
-
-    try {
-      const res = await api.get(
-        `/alunos/${a.id}/modelos-treino`
-      );
-
-      const modelosAluno = Array.isArray(res.data)
-        ? res.data
-        : res.data?.modelos || [];
-
-      setSelectedModelosIds(
-        modelosAluno.map((m) => m.id)
-      );
-    } catch {
+    setCpfAtual({ mascarado: a.cpf, invalido: a.cpf_invalido });
+    if (editingId !== a.id) {
+      setModelosOriginais(null);
+      setErroModelos('');
       setSelectedModelosIds([]);
     }
+    setFormAberto(true);
 
     setTimeout(() => {
       formularioRef.current?.scrollIntoView({
@@ -302,20 +351,14 @@ export default function Alunos() {
   // Pesquisa por nome ou CPF, inclusive sem pontuação
   const alunosFiltrados = useMemo(() => {
     const termo = normalizarTexto(buscaAluno);
-    const termoNumerico = somenteNumeros(buscaAluno);
 
     return alunos
       .filter((a) => {
         const nome = normalizarTexto(a.nome);
-        const cpf = somenteNumeros(a.cpf);
 
-        const correspondeBusca =
-          !termo ||
-          nome.includes(termo) ||
-          (
-            termoNumerico.length > 0 &&
-            cpf.includes(termoNumerico)
-          );
+        const correspondeBusca = cpfBusca
+          ? resultadoCpf?.cpf === cpfBusca && a.id === resultadoCpf.id
+          : !termo || nome.includes(termo);
 
         const correspondeStatus =
           filtroStatusAluno === 'todos' ||
@@ -329,7 +372,7 @@ export default function Alunos() {
           'pt-BR'
         )
       );
-  }, [alunos, buscaAluno, filtroStatusAluno]);
+  }, [alunos, buscaAluno, cpfBusca, resultadoCpf, filtroStatusAluno]);
 
   const totalPaginas = Math.max(
     1,
@@ -494,10 +537,13 @@ export default function Alunos() {
             <input
               id="busca-aluno"
               type="search"
-              placeholder="Digite o nome ou CPF..."
+              placeholder="Digite o nome ou o CPF completo"
               value={buscaAluno}
               onChange={(e) => {
-                setBuscaAluno(e.target.value);
+                const valor = e.target.value;
+                const busca = /^[0-9.\-\s]+$/.test(valor) ? formatarCpf(valor) : valor;
+                if (somenteNumeros(busca) !== cpfBusca) setResultadoCpf(null);
+                setBuscaAluno(busca);
                 setPagina(1);
               }}
             />
@@ -547,7 +593,7 @@ export default function Alunos() {
 
         <div className="alunos-lista-info">
           <span>
-            {carregandoLista
+            {(carregandoLista || buscandoCpf)
               ? 'Carregando alunos...'
               : `${alunosFiltrados.length} aluno(s) encontrado(s)`}
           </span>
@@ -558,6 +604,7 @@ export default function Alunos() {
               className="alunos-limpar"
               onClick={() => {
                 setBuscaAluno('');
+                setResultadoCpf(null);
                 setFiltroStatusAluno('todos');
                 setPagina(1);
               }}
@@ -568,7 +615,9 @@ export default function Alunos() {
         </div>
 
         {/* Listagem */}
-        {carregandoLista ? (
+        {cpfBusca && resultadoCpf?.cpf === cpfBusca && resultadoCpf.erro ? (
+          <p role="alert">{resultadoCpf.erro}</p>
+        ) : carregandoLista || buscandoCpf ? (
           <div className="alunos-estado-vazio">
             Carregando alunos...
           </div>
@@ -609,7 +658,7 @@ export default function Alunos() {
                       </button>
                     </td>
 
-                    <td>{a.cpf || '—'}</td>
+                    <td>{a.cpf || '—'}{a.cpf_invalido && <div>CPF inválido</div>}</td>
 
                     <td>
                       <span
@@ -751,10 +800,19 @@ export default function Alunos() {
                 id="aluno-cpf"
                 name="cpf"
                 type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={14}
+                aria-describedby={editingId ? 'aluno-cpf-atual' : undefined}
                 value={aluno.cpf}
                 onChange={handleChange}
                 placeholder="000.000.000-00"
               />
+              {editingId && <p id="aluno-cpf-atual">
+                {cpfAtual?.mascarado ? `CPF atual: ${cpfAtual.mascarado}. ` : 'CPF não informado. '}
+                {cpfAtual?.invalido ? 'CPF inválido. Digite um CPF válido para regularizar. ' : ''}
+                Deixe em branco para manter o cadastro atual.
+              </p>}
             </div>
 
             <div className="campo">
@@ -861,6 +919,9 @@ export default function Alunos() {
                 </span>
               </div>
 
+              {editingId && editarModelos && modelosOriginais === null && (
+                <p role={erroModelos ? 'alert' : 'status'}>{erroModelos || 'Carregando vínculos de treino…'}</p>
+              )}
               {modelosSelecionadosObjetos.length > 0 && (
                 <div className="aluno-modelos-vinculados-box">
                   <div className="aluno-modelos-vinculados-titulo">
@@ -891,6 +952,7 @@ export default function Alunos() {
                           onClick={() =>
                             removerModeloSelecionado(m.id)
                           }
+                          disabled={!podeSelecionarModelos}
                           title="Remover modelo" aria-label="Remover">
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
@@ -1000,6 +1062,7 @@ export default function Alunos() {
                           <input
                             type="checkbox"
                             checked={jaSelecionado}
+                            disabled={!podeSelecionarModelos}
                             onChange={() => toggleModelo(m.id)}
                             aria-label={`Selecionar modelo ${m.nome}`}
                           />

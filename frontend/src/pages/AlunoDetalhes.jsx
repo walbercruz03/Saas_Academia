@@ -260,7 +260,7 @@ export default function AlunoDetalhes() {
             </span>
           </div>
           <p>
-            CPF: {aluno.cpf || 'Não informado'} • Telefone: {aluno.telefone || 'Não informado'} • E-mail:{' '}
+            CPF: {aluno.cpf || 'Não informado'}{aluno.cpf_invalido && ' (inválido)'} • Telefone: {aluno.telefone || 'Não informado'} • E-mail:{' '}
             {aluno.email || 'Não informado'}
           </p>
           </div>
@@ -529,6 +529,7 @@ export default function AlunoDetalhes() {
             <div className="campo">
               <label>CPF</label>
               <input type="text" value={aluno.cpf || 'Não cadastrado'} readOnly />
+              {aluno.cpf_invalido && <p>CPF inválido. Regularize na edição do aluno.</p>}
             </div>
             <div className="campo">
               <label>Telefone / WhatsApp</label>

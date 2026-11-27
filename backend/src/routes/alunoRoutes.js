@@ -6,6 +6,7 @@ const alunoController = require('../controllers/alunoController');
 
 // Listar alunos (auth - admin e professor)
 router.get('/', authMiddleware, alunoController.listar);
+router.post('/buscar-cpf', authMiddleware, alunoController.buscarCpf);
 
 // Buscar aluno por ID (auth)
 router.get('/:id', authMiddleware, alunoController.findById);

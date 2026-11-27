@@ -41,6 +41,9 @@ function autorizar(req, regras) {
   if (raiz === 'financeiro') return false;
   const modulo = rotas[raiz];
   if (!modulo) return true;
+  const consultaCpf = (raiz === 'alunos' && req.route?.path === '/buscar-cpf') ||
+    (raiz === 'checkin' && req.route?.path === '/buscar-aluno');
+  if (consultaCpf && req.method === 'POST') return acesso(regras, modulo, 'visualizar');
   if (!acesso(regras, modulo, porMetodo[req.method])) return false;
   if (raiz === 'alunos') {
     const acao = porMetodo[req.method];

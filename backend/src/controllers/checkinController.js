@@ -1,5 +1,6 @@
 const { getDataHojeFortaleza } = require('../utils/datasFortaleza');
 const { situacaoEfetiva } = require('../services/vigenciaMatricula');
+const { extrairCpfCompleto, mascararCpf } = require('../utils/documentosBrasileiros');
 const Checkin = require('../models/Checkin');
 const Aluno = require('../models/Aluno');
 const Financeiro = require('../models/Financeiro');
@@ -50,21 +51,21 @@ const checkinController = {
 
     Checkin.listar({ academia_id, pagina: pagina === undefined ? undefined : Number(pagina) }, (err, checkins) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao listar check-ins.' });
-      res.json(checkins);
+      const mascarar = (registro) => ({ ...registro, aluno_cpf: mascararCpf(registro.aluno_cpf) });
+      res.json(Array.isArray(checkins)
+        ? checkins.map(mascarar)
+        : { ...checkins, registros: checkins.registros.map(mascarar) });
     });
   },
 
   buscarAluno(req, res) {
-    const { cpf } = req.query;
-    if (typeof cpf !== 'string' || !cpf.replace(/\D/g, '')) {
-      return res.status(400).json({ mensagem: 'CPF é obrigatório.' });
-    }
-    const cpfLimpo = cpf.replace(/\D/g, '');
-    const sql = `SELECT id, nome, cpf, status, telefone FROM alunos WHERE academia_id = ? AND REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), '/', '') = ?`;
-    db.get(sql, [req.usuario.academia_id, cpfLimpo], (err, aluno) => {
+    const cpf = req.method === 'POST' ? req.body?.cpf : req.query.cpf;
+    const digitos = extrairCpfCompleto(cpf);
+    if (!digitos) return res.status(400).json({ mensagem: 'Informe o CPF completo.' });
+    Aluno.buscarPorCpf(digitos, req.usuario.academia_id, (err, aluno) => {
       if (err) return res.status(500).json({ mensagem: 'Erro ao buscar aluno.' });
       if (!aluno) return res.status(404).json({ mensagem: 'Aluno não encontrado.' });
-      res.json(aluno);
+      res.set('Cache-Control', 'no-store').json({ ...aluno, cpf: mascararCpf(aluno.cpf) });
     });
   },
 

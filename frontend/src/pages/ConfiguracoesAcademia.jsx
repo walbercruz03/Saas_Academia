@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import LogotipoAcademia from '../components/LogotipoAcademia';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole, ArrowRight, ChevronLeft, ChevronRight, FileText, LogOut, Pencil, Save, X } from 'lucide-react';
+import { Building2, Users, ShieldCheck, CreditCard, SlidersHorizontal, LockKeyhole, ArrowRight, ChevronLeft, ChevronRight, FileText, Copy, LogOut, Pencil, Save, X } from 'lucide-react';
 import '../styles/configuracoes.css';
 import api from '../api';
 import { useConsultaCep } from '../useConsultaCep';
@@ -73,6 +73,34 @@ function camposPerfil(academia) {
   };
 }
 
+function LinkPortalAluno({ caminho }) {
+  const [mensagem, setMensagem] = useState('');
+  const link = new URL(caminho, window.location.origin).href;
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setMensagem('Link copiado.');
+    } catch {
+      setMensagem('Selecione e copie o endereço no campo acima.');
+    }
+  }
+
+  return <section className="config-logotipo" aria-labelledby="config-link-portal-titulo">
+    <h3 id="config-link-portal-titulo">Portal do Aluno</h3>
+    <div className="campo">
+      <label htmlFor="config-link-portal">Link personalizado da academia</label>
+      <input id="config-link-portal" type="url" value={link} readOnly onFocus={(evento) => evento.target.select()} />
+    </div>
+    <button type="button" className="treinamento-btn treinamento-btn--neutro" onClick={copiar}>
+      <Copy size={16} aria-hidden="true" /> Copiar link do Portal do Aluno
+    </button>
+    {mensagem && <p role="status">{mensagem}</p>}
+  </section>;
+}
+
+LinkPortalAluno.propTypes = { caminho: PropTypes.string.isRequired };
+
 function PerfilAcademia({ academia, atualizar }) {
   const [editando, setEditando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -123,6 +151,7 @@ function PerfilAcademia({ academia, atualizar }) {
     </form> : <button type="button" className="treinamento-btn treinamento-btn--neutro"
       onClick={() => setEditando(true)}><Pencil size={16} aria-hidden="true" /> Editar dados comerciais</button>}
     <LogotipoAcademia disponivel={academia.logotipo_disponivel} />
+    {academia.portal_aluno_caminho && <LinkPortalAluno caminho={academia.portal_aluno_caminho} />}
   </>;
 }
 
@@ -304,7 +333,7 @@ PerfilAcademia.propTypes = {
     documento_mascarado: PropTypes.string, telefone: PropTypes.string, email: PropTypes.string,
     logradouro: PropTypes.string, numero_endereco: PropTypes.string, complemento: PropTypes.string,
     bairro: PropTypes.string, cidade: PropTypes.string, uf: PropTypes.string, cep: PropTypes.string,
-    endereco: PropTypes.string, logotipo_disponivel: PropTypes.bool,
+    endereco: PropTypes.string, logotipo_disponivel: PropTypes.bool, portal_aluno_caminho: PropTypes.string,
   }).isRequired,
   atualizar: PropTypes.func.isRequired,
 };

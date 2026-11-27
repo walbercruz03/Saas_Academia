@@ -10,17 +10,16 @@ import { ExecucaoAluno, HistoricoTreinosAluno, IniciarTreino, TreinoEmAberto } f
 import { MENSAGEM_SENHA, senhaValida } from '../politicaSenha';
 import '../styles/portalAluno.css';
 
-function MarcaPortal() {
-  return <Link to="/aluno/login" className="portal-marca"><Dumbbell size={23} aria-hidden="true" /> Wc Fit</Link>;
-}
-
 function Tema({ tema, alternar }) {
   return <button type="button" className="portal-icone-botao" aria-label={tema === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={alternar}>
     {tema === 'dark' ? <Sun size={20} aria-hidden="true" /> : <Moon size={20} aria-hidden="true" />}
   </button>;
 }
 
-function Acesso({ tema, alternar }) {
+function Acesso({ tema, alternar, academiaLink }) {
+  const [marca, setMarca] = useState(null);
+  const [erroMarca, setErroMarca] = useState('');
+  const rotaMarca = academiaLink === null ? '' : `/academias/${encodeURIComponent(academiaLink)}`;
   const [modo, setModo] = useState('entrar');
   const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
@@ -30,6 +29,19 @@ function Acesso({ tema, alternar }) {
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!rotaMarca) return;
+    if (!/^[1-9]\d{0,9}$/.test(academiaLink)) {
+      setErroMarca('Link do Portal do Aluno indisponível.');
+      return;
+    }
+    const controle = new AbortController();
+    requisitar(rotaMarca + '/marca', { signal:controle.signal })
+      .then((dados) => { if (!controle.signal.aborted) setMarca(dados); })
+      .catch((falha) => { if (!controle.signal.aborted) setErroMarca(falha.message); });
+    return () => controle.abort();
+  }, [academiaLink,rotaMarca]);
 
   function trocar(valor) {
     setModo(valor);
@@ -42,6 +54,7 @@ function Acesso({ tema, alternar }) {
 
   async function enviar(evento) {
     evento.preventDefault();
+    if (rotaMarca && !marca) return;
     setErro('');
     if (modo === 'codigo' && !senhaValida(senha)) {
       setErro(MENSAGEM_SENHA);
@@ -49,8 +62,11 @@ function Acesso({ tema, alternar }) {
     }
     setOcupado(true);
     try {
-      const corpo = modo === 'codigo' ? { cpf, codigo:codigo.trim(), senha }
-        : { cpf, senha, ...(academia && { academia_id:Number(academia) }) };
+      const vinculo = academiaLink ?? academia;
+      const corpo = {
+        cpf, senha, ...(vinculo && { academia_id:Number(vinculo) }),
+        ...(modo === 'codigo' && { codigo:codigo.trim() }),
+      };
       const resposta = await requisitar(modo === 'codigo' ? '/ativar' : '/entrar', { corpo });
       if (resposta?.academias) {
         setAcademias(resposta.academias);
@@ -67,7 +83,13 @@ function Acesso({ tema, alternar }) {
   }
 
   return <main className="portal-login">
-    <header className="portal-topo"><MarcaPortal /><Tema tema={tema} alternar={alternar} /></header>
+    <header className="portal-topo">
+      <Link to={academiaLink === null ? '/aluno/login' : `/aluno/login?academia=${encodeURIComponent(academiaLink)}`} className="portal-marca">
+        <LogoPortal src={marca ? basePortal + rotaMarca + '/logotipo' : ''} />
+        <span>{marca?.nome || 'Wc Fit'}</span>
+      </Link>
+      <Tema tema={tema} alternar={alternar} />
+    </header>
     <div className="portal-login-grade">
       <div className="portal-login-apresentacao">
         <Dumbbell size={36} aria-hidden="true" />
@@ -78,6 +100,8 @@ function Acesso({ tema, alternar }) {
       <section className="portal-card portal-login-form" aria-labelledby="portal-acesso-titulo">
         <h2 id="portal-acesso-titulo">{modo === 'codigo' ? 'Defina sua senha' : 'Entre no seu portal'}</h2>
         {modo === 'codigo' && <p>Use o código de primeiro acesso ou de recuperação emitido pela sua academia.</p>}
+        {erroMarca && <p className="portal-erro" role="alert">{erroMarca} <Link to="/aluno/login">Abrir o portal geral</Link></p>}
+        {rotaMarca && !marca && !erroMarca && <p role="status">Carregando academia…</p>}
         <form onSubmit={enviar}>
           <label>CPF<input name="cpf" value={cpf} onChange={(e) => setCpf(e.target.value)} type="text" inputMode="numeric"
             autoComplete="username" maxLength={14} placeholder="000.000.000-00" required disabled={ocupado || academias.length > 0} /></label>
@@ -95,7 +119,7 @@ function Acesso({ tema, alternar }) {
             </select>
           </label>}
           {erro && <p className="portal-erro" role="alert">{erro}</p>}
-          <button type="submit" className="portal-botao" disabled={ocupado}>{ocupado ? 'Aguarde…' : modo === 'codigo' ? 'Salvar senha e entrar' : 'Entrar'}</button>
+          <button type="submit" className="portal-botao" disabled={ocupado || Boolean(rotaMarca && !marca)}>{ocupado ? 'Aguarde…' : modo === 'codigo' ? 'Salvar senha e entrar' : 'Entrar'}</button>
         </form>
         <div className="portal-login-opcoes">
           {modo === 'entrar'
@@ -195,14 +219,14 @@ function Perfil({ dados }) {
   </>;
 }
 
-function LogoPortal({ versao }) {
+function LogoPortal({ src }) {
   const [falhou, setFalhou] = useState(false);
-  return versao && !falhou
-    ? <img src={`${basePortal}/logotipo?v=${versao}`} alt="" onError={() => setFalhou(true)} />
+  return src && !falhou
+    ? <img src={src} alt="" onError={() => setFalhou(true)} />
     : <Dumbbell size={24} aria-hidden="true" />;
 }
 
-LogoPortal.propTypes = { versao: PropTypes.string };
+LogoPortal.propTypes = { src: PropTypes.string };
 
 function Painel({ tela, tema, alternar, sair }) {
   const [dados, setDados] = useState(null);
@@ -259,7 +283,7 @@ function Painel({ tela, tema, alternar, sair }) {
   return <div className="portal-painel">
     <header className="portal-topo">
       <div className="portal-marca">
-        <LogoPortal key={dados?.logo_versao ?? ''} versao={dados?.logo_versao} />
+        <LogoPortal key={dados?.logo_versao ?? ''} src={dados?.logo_versao ? `${basePortal}/logotipo?v=${dados.logo_versao}` : ''} />
         <span>{dados?.academia || 'Wc Fit'}</span>
       </div>
       <div className="portal-topo-acoes">
@@ -302,6 +326,7 @@ export default function PortalAluno({ tela }) {
   const conexao = useConexaoPortal();
   const navigate = useNavigate();
   const local = useLocation();
+  const academiaLink = new URLSearchParams(local.search).get('academia');
   const [saidaPendente,setSaidaPendente] = useState(false);
   const [erroSaida,setErroSaida] = useState('');
   const [enviando,setEnviando] = useState(false);
@@ -341,7 +366,7 @@ export default function PortalAluno({ tela }) {
     <ControlesPwa podeAtualizar={tela !== 'execucao' && !conexao.indisponivel && !saidaPendente} />
     {(conexao.indisponivel || saidaPendente) ? <PortalIndisponivel tentar={conexao.tentar}
       saidaPendente={saidaPendente} enviando={enviando && !conexao.indisponivel} erroSaida={erroSaida} />
-      : tela === 'login' ? <Acesso tema={tema} alternar={alternar} />
+      : tela === 'login' ? <Acesso key={academiaLink ?? 'geral'} academiaLink={academiaLink} tema={tema} alternar={alternar} />
         : <Painel key={conexao.tentativa} tela={tela} tema={tema} alternar={alternar} sair={() => setSaidaPendente(true)} />}
   </div>;
 }
@@ -359,7 +384,7 @@ const fichaPortal = PropTypes.shape({
 });
 
 Tema.propTypes = { tema: temaPortal, alternar: PropTypes.func.isRequired };
-Acesso.propTypes = { tema: temaPortal, alternar: PropTypes.func.isRequired };
+Acesso.propTypes = { tema: temaPortal, alternar: PropTypes.func.isRequired, academiaLink: PropTypes.string };
 Fichas.propTypes = { fichas: PropTypes.arrayOf(fichaPortal).isRequired };
 Inicio.propTypes = {
   dados: PropTypes.shape({
